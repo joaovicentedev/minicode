@@ -9,8 +9,10 @@ from minicode.agent import Agent, State
 class SequenceModel:
     def __init__(self, responses):
         self.responses = iter(responses)
+        self.prompts = []
 
     def complete(self, prompt, *, response_model=None):
+        self.prompts.append(prompt)
         return next(self.responses)
 
 
@@ -19,7 +21,16 @@ def test_agent_completes_spec_plan_implementation_and_verification(tmp_path, cap
         [
             "Spec: calcule a resposta",
             "1. Criar o teste",
-            json.dumps({"files": [{"path": "test_answer.py", "content": "def test_answer():\n    assert 42 == 42\n"}]}),
+            json.dumps(
+                {
+                    "files": [
+                        {
+                            "path": "test_answer.py",
+                            "content": "def test_answer():\n    assert 42 == 42\n",
+                        }
+                    ]
+                }
+            ),
         ]
     )
     agent = Agent(model, tmp_path)
@@ -50,6 +61,46 @@ def test_agent_limits_attempts_on_invalid_model_output(tmp_path):
     assert agent.state is State.FAILED
 
 
+def test_agent_marks_empty_pytest_collection_as_unverified(tmp_path):
+    model = SequenceModel(
+        [
+            "spec",
+            "plan",
+            json.dumps({"files": [{"path": "index.html", "content": "<h1>Snake</h1>"}]}),
+        ]
+    )
+    agent = Agent(model, tmp_path / "web-project")
+
+    result = agent.run("Crie uma página simples")
+
+    assert "não encontrou testes" in result
+    assert agent.state is State.UNVERIFIED
+    assert (tmp_path / "web-project" / "index.html").exists()
+
+
+def test_agent_repair_feedback_includes_current_files_and_test_error(tmp_path):
+    agent = Agent(SequenceModel([]), tmp_path)
+    agent.tools.write_file("main.py", "print('old')")
+
+    feedback = agent._repair_feedback("Corrija main", "AssertionError", ["main.py"])
+
+    assert "Corrija main" in feedback
+    assert "AssertionError" in feedback
+    assert "print('old')" in feedback
+    assert "preserve os testes existentes" in feedback
+    assert "isinstance(True, int)" in feedback
+
+
+def test_implementation_prompt_allows_project_subdirectories():
+    prompt = Agent._implementation_prompt("Crie um app", "spec", "plan")
+
+    assert "raiz de trabalho do projeto" in prompt
+    assert "Crie nessa pasta os arquivos e subpastas necessários" in prompt
+    assert "nunca podem sair dela" in prompt
+    assert "isinstance(True, int)" in prompt
+    assert "Argumentos padrão mutáveis" in prompt
+
+
 def test_agent_parses_file_payload():
     files = Agent._parse_files('{"files": [{"path": "x.py", "content": "x = 1"}]}')
 
@@ -58,7 +109,9 @@ def test_agent_parses_file_payload():
 
 
 def test_agent_parses_json_wrapped_in_markdown():
-    files = Agent._parse_files('Resposta:\n```json\n{"files": [{"path": "x.py", "content": "ok"}]}\n```')
+    files = Agent._parse_files(
+        'Resposta:\n```json\n{"files": [{"path": "x.py", "content": "ok"}]}\n```'
+    )
 
     assert files.files[0].content == "ok"
 
@@ -72,6 +125,61 @@ def test_agent_project_context_includes_source_and_excludes_environment_files(tm
 
     assert "src/app.py" in context
     assert "API_KEY" not in context
+
+
+def test_agent_project_context_reads_tests_before_source_file_limit(tmp_path):
+    agent = Agent(SequenceModel([]), tmp_path)
+    for number in range(21):
+        agent.tools.write_file(f"module_{number:02}.py", "value = 1\n")
+    agent.tools.write_file("tests/test_required.py", "def test_required():\n    assert True\n")
+
+    context = agent._project_context()
+
+    assert "tests/test_required.py" in context
+    assert context.startswith("--- tests/test_required.py ---")
+
+
+def test_agent_prompts_preserve_explicit_task_constraints(tmp_path):
+    model = SequenceModel(
+        [
+            "Spec incompleta",
+            "Plano incompleto",
+            json.dumps({"files": [{"path": "validation.py", "content": "pass\n"}]}),
+        ]
+    )
+    agent = Agent(model, tmp_path)
+
+    agent.run("Rejeite bool mesmo sendo subtipo de int")
+
+    assert "restrições explícitas" in model.prompts[0]
+    assert "Não inclua código" in model.prompts[0]
+    assert "Tarefa original:\nRejeite bool" in model.prompts[1]
+    assert "não inclua código pronto" in model.prompts[1]
+    assert "A tarefa original prevalece" in model.prompts[2]
+
+
+def test_agent_repair_prompt_repeats_task_and_failed_test(tmp_path):
+    (tmp_path / "test_answer.py").write_text(
+        "from answer import answer\n\ndef test_answer():\n    assert answer() == 42\n",
+        encoding="utf-8",
+    )
+    first = json.dumps(
+        {"files": [{"path": "answer.py", "content": "def answer():\n    return 0\n"}]}
+    )
+    repaired = json.dumps(
+        {"files": [{"path": "answer.py", "content": "def answer():\n    return 42\n"}]}
+    )
+    model = SequenceModel(["spec equivocada", "plano equivocado", first, repaired])
+
+    result = Agent(model, tmp_path).run("Corrija answer para retornar 42")
+
+    assert "passed" in result
+    assert "Tarefa original e suas restrições:\nCorrija answer para retornar 42" in model.prompts[3]
+    assert "FAILED test_answer.py" in model.prompts[3]
+    assert "def answer():\n    return 0" in model.prompts[3]
+    assert "--- test_answer.py ---" in model.prompts[3]
+    assert "spec equivocada" not in model.prompts[3]
+    assert "plano equivocado" not in model.prompts[3]
 
 
 def test_agent_rejects_invalid_file_payload():

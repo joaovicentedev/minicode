@@ -1,0 +1,1 @@
+{"category": "pequena refatoração", "task": "Refatore word_count em words.py para uma implementação simples sem alterar seu comportamento: conte palavras separadas por espaços em branco, inclusive em texto vazio."}

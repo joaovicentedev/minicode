@@ -1,0 +1,1 @@
+{"category": "modificação de API", "task": "Altere list_items(items, page, page_size) em catalog.py para retornar uma página começando em page=1. Rejeite page ou page_size menores que 1 com ValueError."}

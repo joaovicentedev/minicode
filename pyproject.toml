@@ -13,6 +13,7 @@ dependencies = [
 
 [project.scripts]
 minicode = "minicode.cli:main"
+minicode-eval = "minicode.evaluation:main"
 
 [dependency-groups]
 dev = [

@@ -38,5 +38,6 @@ def test_openai_adapter_sends_pydantic_schema_for_structured_turn():
 
     assert '"files"' in response
     assert requests[0]["response_format"]["type"] == "json_schema"
-    assert requests[0]["response_format"]["json_schema"]["schema"] == FileChanges.model_json_schema()
+    schema = requests[0]["response_format"]["json_schema"]["schema"]
+    assert schema == FileChanges.model_json_schema()
     http_client.close()

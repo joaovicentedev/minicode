@@ -1,0 +1,1 @@
+{"category": "validação de dados", "task": "Preciso validar idades em validation.py com uma função valid_age(age). Ela deve aceitar números inteiros de 0 a 120, incluindo os limites. True e False não são idades válidas. Para qualquer valor inválido, lance ValueError."}

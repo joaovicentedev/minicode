@@ -1,0 +1,1 @@
+{"category": "criação de testes", "task": "Crie testes pytest em tests/test_clamp.py para clamp(value, minimum, maximum), cobrindo valor abaixo, dentro e acima do intervalo. Não altere clamp.py."}

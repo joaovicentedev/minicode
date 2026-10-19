@@ -18,6 +18,29 @@ def test_project_tools_rejects_paths_outside_project(tmp_path):
         tools.write_file("../outside.txt", "unsafe")
 
 
+def test_project_tools_validates_all_write_paths_before_writing(tmp_path):
+    tools = ProjectTools(tmp_path)
+
+    with pytest.raises(ValueError):
+        tools.validate_write_path("../outside.txt")
+
+
+def test_project_tools_keeps_existing_tests_read_only(tmp_path):
+    test_file = tmp_path / "tests" / "test_feature.py"
+    test_file.parent.mkdir()
+    test_file.write_text("def test_feature():\n    assert True\n", encoding="utf-8")
+    tools = ProjectTools(tmp_path, read_only_paths={"tests/test_feature.py"})
+
+    assert "assert True" in tools.read_file("tests/test_feature.py")
+    with pytest.raises(ValueError, match="somente leitura"):
+        tools.validate_write_path("tests/../tests/test_feature.py")
+    with pytest.raises(ValueError, match="somente leitura"):
+        tools.write_file("tests/test_feature.py", "assert False")
+    assert "assert True" in test_file.read_text(encoding="utf-8")
+    tools.write_file("tests/test_new.py", "def test_new():\n    assert True\n")
+    assert (tmp_path / "tests" / "test_new.py").exists()
+
+
 def test_project_tools_reports_when_project_cannot_be_created(tmp_path):
     parent_file = tmp_path / "not-a-directory"
     parent_file.write_text("file", encoding="utf-8")
@@ -42,4 +65,11 @@ def test_project_tools_runs_pytest(tmp_path):
     result = tools.run_tests()
 
     assert result.returncode == 0
+
+
+def test_project_tools_reports_empty_test_collection(tmp_path):
+    tools = ProjectTools(tmp_path)
+    result = tools.run_tests()
+
+    assert result.returncode == 5
 

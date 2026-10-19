@@ -4,7 +4,7 @@ import argparse
 import logging
 from pathlib import Path
 
-from minicode.agent import Agent
+from minicode.agent import Agent, State
 from minicode.llm import OpenAIChatModel
 
 
@@ -25,5 +25,7 @@ def main() -> None:
         agent = Agent(OpenAIChatModel.from_environment(), args.project, args.max_attempts)
         print(agent.run(task))
         print(f"Estado final: {agent.state.value}")
+        if agent.state is not State.DONE:
+            parser.exit(1)
     except (ValueError, RuntimeError) as error:
         parser.exit(1, f"minicode: {error}\n")

@@ -1,0 +1,1 @@
+{"category": "correção de bug", "task": "Corrija normalize_name em names.py: remova espaços nas pontas e compacte sequências de espaços internos para um único espaço, mantendo as letras."}

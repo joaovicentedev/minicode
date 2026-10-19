@@ -55,7 +55,12 @@ class OpenAIChatModel:
         except APIStatusError as error:
             unsupported_format = error.status_code in {400, 422} and any(
                 marker in str(error).lower()
-                for marker in ("response_format", "json_schema", "structured output", "extra inputs")
+                for marker in (
+                    "response_format",
+                    "json_schema",
+                    "structured output",
+                    "extra inputs",
+                )
             )
             if "response_format" not in request or not unsupported_format:
                 raise
