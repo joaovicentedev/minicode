@@ -116,4 +116,4 @@ As etapas `run` e `grade` executam até quatro casos em paralelo por padrão, ma
 
 Para rodar apenas um caso, use `make evaluate CASE=05_validation`. O comando `grade` detecta automaticamente os casos presentes na pasta da execução. Também é possível usar `uv run minicode-eval run --case 05_validation --output evaluation/results/ensaio-validation` seguido de `uv run minicode-eval grade --run evaluation/results/ensaio-validation`.
 
-Veja [`README.md`](README.md) para o resumo do projeto e [`docs/architecture.md`](docs/architecture.md) para a separação entre agente, porta do modelo e ferramentas.
+Veja [`README.md`](README.md) para a arquitetura, o fluxo completo, os limites e a avaliação.
