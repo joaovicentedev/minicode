@@ -31,6 +31,7 @@ def test_agent_completes_spec_plan_implementation_and_verification(tmp_path, cap
                     ]
                 }
             ),
+            '{"accepted": true, "reason": "Critério coberto pelo teste"}',
         ]
     )
     agent = Agent(model, tmp_path)
@@ -169,7 +170,15 @@ def test_agent_repair_prompt_repeats_task_and_failed_test(tmp_path):
     repaired = json.dumps(
         {"files": [{"path": "answer.py", "content": "def answer():\n    return 42\n"}]}
     )
-    model = SequenceModel(["spec equivocada", "plano equivocado", first, repaired])
+    model = SequenceModel(
+        [
+            "spec equivocada",
+            "plano equivocado",
+            first,
+            repaired,
+            '{"accepted": true, "reason": "Correção verificada"}',
+        ]
+    )
 
     result = Agent(model, tmp_path).run("Corrija answer para retornar 42")
 
@@ -185,3 +194,72 @@ def test_agent_repair_prompt_repeats_task_and_failed_test(tmp_path):
 def test_agent_rejects_invalid_file_payload():
     with pytest.raises(ValueError):
         Agent._parse_files('{"files": []}')
+
+
+def test_agent_rejects_invalid_state_transition(tmp_path):
+    agent = Agent(SequenceModel([]), tmp_path)
+
+    with pytest.raises(ValueError, match="RECEIVED -> DONE"):
+        agent._transition(State.DONE)
+
+    assert agent.state is State.RECEIVED
+
+
+def test_agent_repairs_when_acceptance_review_rejects(tmp_path):
+    first = json.dumps(
+        {
+            "files": [
+                {"path": "test_answer.py", "content": "def test_answer():\n    assert 1 == 1\n"}
+            ]
+        }
+    )
+    repaired = json.dumps(
+        {
+            "files": [
+                {"path": "test_answer.py", "content": "def test_answer():\n    assert 42 == 42\n"}
+            ]
+        }
+    )
+    model = SequenceModel(
+        [
+            "Critério: verificar 42",
+            "1. Criar teste",
+            first,
+            '{"accepted": false, "reason": "O teste não verifica 42"}',
+            repaired,
+            '{"accepted": true, "reason": "O teste verifica 42"}',
+        ]
+    )
+    agent = Agent(model, tmp_path)
+
+    agent.run("Verifique 42")
+
+    assert agent.state is State.DONE
+    assert "O teste não verifica 42" in model.prompts[4]
+    assert json.loads((agent.trace.path / "state.json").read_text())["attempts"] == 2
+
+
+def test_agent_fails_when_acceptance_review_rejects_last_attempt(tmp_path):
+    model = SequenceModel(
+        [
+            "Critério: verificar 42",
+            "1. Criar teste",
+            json.dumps(
+                {
+                    "files": [
+                        {
+                            "path": "test_answer.py",
+                            "content": "def test_answer():\n    assert True\n",
+                        }
+                    ]
+                }
+            ),
+            '{"accepted": false, "reason": "Critério não coberto"}',
+        ]
+    )
+    agent = Agent(model, tmp_path, max_attempts=1)
+
+    result = agent.run("Verifique 42")
+
+    assert agent.state is State.FAILED
+    assert "Critério não coberto" in result

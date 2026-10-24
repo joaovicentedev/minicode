@@ -53,6 +53,7 @@ def test_agent_persists_complete_execution_and_hides_trace_from_tools(tmp_path):
             json.dumps(
                 {"files": [{"path": "test_answer.py", "content": "def test_ok():\n    assert 1\n"}]}
             ),
+            '{"accepted": true, "reason": "Teste cobre o critério"}',
         ]
     )
     agent = Agent(model, tmp_path)
@@ -64,7 +65,7 @@ def test_agent_persists_complete_execution_and_hides_trace_from_tools(tmp_path):
     state = json.loads((agent.trace.path / "state.json").read_text(encoding="utf-8"))
     actions = (agent.trace.path / "actions.jsonl").read_text(encoding="utf-8")
     assert state["task"] == "Crie teste"
-    assert state["llm_calls"] == 3
+    assert state["llm_calls"] == 4
     assert state["attempts"] == 1
     assert state["test_runs"] == 1
     assert state["changed_files"] == ["test_answer.py"]
@@ -96,7 +97,12 @@ def test_agent_trace_counts_repair_attempts_and_test_failures(tmp_path):
         "from answer import answer\n\ndef test_answer():\n    assert answer() == 42\n",
         encoding="utf-8",
     )
-    agent = Agent(SequenceModel(["spec", "plan", first, repaired]), tmp_path)
+    agent = Agent(
+        SequenceModel(
+            ["spec", "plan", first, repaired, '{"accepted": true, "reason": "Corrigido"}']
+        ),
+        tmp_path,
+    )
 
     agent.run("Corrija answer")
 
@@ -105,7 +111,7 @@ def test_agent_trace_counts_repair_attempts_and_test_failures(tmp_path):
     events = [json.loads(line) for line in action_lines]
     assert agent.state is State.DONE
     assert state["attempts"] == 2
-    assert state["llm_calls"] == 4
+    assert state["llm_calls"] == 5
     assert state["test_runs"] == 2
     assert [event["returncode"] for event in events if event["kind"] == "test"] == [1, 0]
     assert any(event.get("status") == "REPAIRING" for event in events)

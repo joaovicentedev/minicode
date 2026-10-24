@@ -64,11 +64,12 @@ uv run minicode --project /caminho/para/meu-projeto --max-attempts 3 "Corrija os
 3. O modelo gera um plano numerado.
 4. O modelo propõe o conteúdo integral dos arquivos em JSON.
 5. O MiniCode valida todos os caminhos antes de gravar os arquivos e executa `pytest -q` no projeto-alvo.
-6. Se os testes falharem e houver tentativas restantes, o reparo recebe a tarefa original, o erro, os testes visíveis e o conteúdo atual dos arquivos propostos. A spec e o plano anteriores ficam de fora desse pedido para evitar repetir uma interpretação equivocada.
-7. Se pytest não encontrar testes (código 5) ou não estiver instalado, o resultado será `UNVERIFIED`; o agente não pedirá um reparo sem uma falha concreta.
-8. O terminal mostra a saída da verificação e o estado final (`DONE`, `FAILED` ou `UNVERIFIED`). Os estados diferentes de `DONE` fazem o comando sair com código 1.
+6. Se os testes passarem, o modelo revisa a implementação diante da tarefa e dos critérios de aceitação. Uma rejeição impede `DONE` e inicia reparo quando ainda há tentativas.
+7. Se os testes falharem e houver tentativas restantes, o reparo recebe a tarefa original, o erro, os testes visíveis e o conteúdo atual dos arquivos propostos. A spec e o plano anteriores ficam de fora desse pedido para evitar repetir uma interpretação equivocada.
+8. Se pytest não encontrar testes (código 5) ou não estiver instalado, o resultado será `UNVERIFIED`; o agente não pedirá um reparo sem uma falha concreta.
+9. O terminal mostra a saída da verificação e o estado final (`DONE`, `FAILED` ou `UNVERIFIED`). Os estados diferentes de `DONE` fazem o comando sair com código 1.
 
-O comando registra no terminal os turnos do modelo (etapa, duração e tamanho da resposta), a especificação e o plano gerados, os arquivos gravados, as transições de estado e o resultado do pytest. O prompt completo, que inclui trechos do projeto, não é registrado.
+O comando individual registra no terminal os turnos do modelo (etapa, duração e tamanho da resposta), os arquivos gravados, as transições de estado e o resultado do pytest. A especificação e o plano ficam no histórico da execução. O prompt completo, que inclui trechos do projeto, não é registrado.
 
 Cada execução salva um histórico em `<projeto-alvo>/.minicode/runs/<id>/`: `specification.md`, `plan.md`, `actions.jsonl` e `state.json`. O diretório é excluído do contexto enviado ao modelo e das ferramentas de escrita. `state.json` contém a tarefa, o estado, o resultado e os contadores de tentativas, chamadas ao modelo e testes; `actions.jsonl` registra as ferramentas, arquivos e erros. A saída dos testes também é registrada ali e pode conter dados exibidos pelos testes.
 
@@ -83,6 +84,7 @@ Na etapa de implementação, o MiniCode envia um JSON Schema gerado a partir do 
 - A execução dos testes tem limite de 120 segundos.
 - Arquivos `.env`, chaves `.pem`/`.key`, nomes contendo `secret`, `credential` ou `token`, e pastas `.git`, `.aws` e `.ssh` são protegidos contra leitura e escrita pelas ferramentas.
 - O MiniCode não cria um backup automático das alterações. Revise o `git diff` do projeto-alvo antes de aceitar o resultado.
+- A revisão de critérios é feita por modelo e pode errar. Testes de aceitação independentes continuam necessários para medir a correção da solução.
 - A proteção de caminhos e comandos é uma barreira básica, não um sandbox de sistema operacional. Testes executam código no mesmo ambiente do processo e podem ter efeitos colaterais.
 - Os testes do projeto-alvo precisam estar instalados no ambiente usado para iniciar o MiniCode e suas dependências devem estar disponíveis.
 
@@ -109,6 +111,8 @@ make evaluate
 `make setup` instala as dependências e cria `.env` a partir de `.env.example` somente se o arquivo ainda não existir; depois, preencha a configuração. Em `make run`, `PROJECT` usa o diretório atual por padrão e, sem `TASK`, o programa solicita a tarefa no terminal. `make check` executa testes e lint.
 
 `make evaluate` roda seis tarefas em cópias isoladas e salva `evaluation/results/<data>/run.json`. Os testes visíveis estão em `tests/` de cada projeto e os arquivos já existentes nessa pasta são somente leitura para o agente durante a avaliação. Após a execução, use `make grade RUN=evaluation/results/<data>` para rodar os testes externos de `checks/`, sem chamar o agente. O relatório `report.json` inclui `TaskSuccessRate`, `FirstAttemptSuccess`, `AverageIterations` e `AverageLLMCalls`. Veja o [README.md](README.md) para as definições dessas métricas.
+
+As etapas `run` e `grade` executam até quatro casos em paralelo por padrão, mantendo os resultados na ordem dos casos. Use `--workers 1` para execução sequencial ou outro número positivo para ajustar a concorrência. O modelo usado por `run` precisa aceitar chamadas simultâneas. O terminal mostra apenas avisos, erros e os caminhos dos relatórios; spec, plano e eventos detalhados continuam no histórico de cada caso.
 
 Para rodar apenas um caso, use `make evaluate CASE=05_validation`. O comando `grade` detecta automaticamente os casos presentes na pasta da execução. Também é possível usar `uv run minicode-eval run --case 05_validation --output evaluation/results/ensaio-validation` seguido de `uv run minicode-eval grade --run evaluation/results/ensaio-validation`.
 

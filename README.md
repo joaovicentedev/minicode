@@ -39,11 +39,11 @@ O harness, formado pela orquestração do agente e pelas ferramentas locais, dec
 3. Usa a especificação para solicitar um **plano numerado**.
 4. Envia tarefa, especificação, plano e contexto ao modelo para propor arquivos em JSON.
 5. Valida a resposta e os caminhos, grava os arquivos e executa `pytest -q` na raiz do projeto-alvo.
-6. Usa o resultado dos testes para concluir ou iniciar uma tentativa de reparo.
+6. Se os testes passarem, pede ao modelo uma revisão dos critérios de aceitação antes de concluir. Uma rejeição inicia reparo, se houver tentativas restantes.
 
-Essa ordem aplica Spec-Driven Development: a implementação só é solicitada depois da spec e do plano. A spec atual é texto livre; o programa não valida automaticamente a qualidade dos critérios de aceitação.
+Essa ordem aplica Spec-Driven Development: a implementação só é solicitada depois da spec e do plano. A spec atual é texto livre; o programa não valida automaticamente a qualidade dos critérios de aceitação. A revisão posterior é uma avaliação do modelo e não substitui testes de aceitação independentes.
 
-Os estados registrados são `RECEIVED → SPECIFIED → PLANNED → IMPLEMENTING → VERIFYING → DONE`. Uma falha verificável pode levar a `REPAIRING`; o limite de tentativas leva a `FAILED`. Quando `pytest` não encontra testes ou não está disponível, o resultado é `UNVERIFIED`.
+Os estados registrados são `RECEIVED → SPECIFIED → PLANNED → IMPLEMENTING → VERIFYING → DONE`. As transições permitidas são validadas pelo programa. Uma falha nos testes ou na revisão dos critérios pode levar a `REPAIRING`; o limite de tentativas leva a `FAILED`. Quando `pytest` não encontra testes ou não está disponível, o resultado é `UNVERIFIED`.
 
 ## Ferramentas implementadas
 
@@ -64,7 +64,7 @@ As leituras e escritas ficam restritas à raiz informada em `--project`. Caminho
 
 Se os testes falharem, o agente monta um novo pedido de reparo com a tarefa original, a saída de erro, os testes visíveis e o conteúdo atual dos arquivos propostos. A spec e o plano anteriores não são reutilizados nessa etapa, pois podem conter interpretações equivocadas. Os pedidos de implementação e reparo incluem lembretes gerais de Python, como a relação entre `bool` e `int`, para ajudar na revisão de tipos e condições quando aplicável. O padrão de duas tentativas permite uma proposta inicial e um reparo. Sem testes coletados ou sem `pytest`, o agente termina como `UNVERIFIED` e não inicia um reparo sem falha concreta. Estados diferentes de `DONE` produzem código de saída 1.
 
-O terminal registra os turnos do modelo, a spec, o plano, os arquivos gravados, os estados e o resultado dos testes. Cada execução também cria `.minicode/runs/<id>/` no projeto-alvo, com `specification.md`, `plan.md`, `actions.jsonl` e `state.json`. Esses arquivos guardam tarefa, ferramentas chamadas, arquivos alterados, testes, erros, tentativas, chamadas ao modelo e resultado. A pasta fica fora do contexto enviado ao modelo e é protegida contra alterações propostas por ele. O prompt completo e o conteúdo integral das respostas do modelo não são gravados nesse histórico.
+O comando individual registra no terminal os turnos do modelo, os arquivos gravados, os estados e o resultado dos testes. Cada execução também cria `.minicode/runs/<id>/` no projeto-alvo, com `specification.md`, `plan.md`, `actions.jsonl` e `state.json`. Esses arquivos guardam tarefa, spec, plano, ferramentas chamadas, arquivos alterados, testes, erros, tentativas, chamadas ao modelo e resultado. A pasta fica fora do contexto enviado ao modelo e é protegida contra alterações propostas por ele. O prompt completo e o conteúdo integral das respostas do modelo não são gravados nesse histórico.
 
 ## Avaliação da Parte 1
 
@@ -75,6 +75,8 @@ make evaluate
 ```
 
 Esse comando usa o modelo configurado em `.env` e grava `evaluation/results/<data>/run.json`, além das cópias modificadas e seus históricos. Ao terminar, mostra o caminho da execução. Para medir as soluções depois, em um processo separado:
+
+Os casos de `run` e `grade` são processados em paralelo (quatro por padrão); `--workers N` ajusta esse limite. Os resultados permanecem ordenados pelo nome do caso.
 
 ```sh
 make grade RUN=evaluation/results/<data>

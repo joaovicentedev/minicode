@@ -1,6 +1,7 @@
 import json
 import shutil
 import subprocess
+import threading
 from pathlib import Path
 
 import pytest
@@ -21,6 +22,8 @@ class ReferenceModel:
     def complete(self, prompt, *, response_model=None):
         if response_model is None:
             return "Objetivo e critérios" if "Não implemente ainda" in prompt else "1. Implementar"
+        if response_model.__name__ == "AcceptanceReview":
+            return '{"accepted": true, "reason": "Critérios verificados"}'
         solutions = {
             "sum_even": (
                 "calculator.py",
@@ -83,6 +86,7 @@ def test_run_and_grade_keep_acceptance_tests_outside_agent_project(tmp_path):
             json.dumps(
                 {"files": [{"path": "answer.py", "content": "def answer():\n    return 0\n"}]}
             ),
+            '{"accepted": true, "reason": "Testes passaram"}',
         ]
     )
 
@@ -90,7 +94,7 @@ def test_run_and_grade_keep_acceptance_tests_outside_agent_project(tmp_path):
 
     project = tmp_path / "output" / "one" / "project"
     assert run["cases"][0]["agent_state"] == "DONE"
-    assert run["cases"][0]["llm_calls"] == 3
+    assert run["cases"][0]["llm_calls"] == 4
     assert not list(project.rglob("*acceptance*.py"))
     assert json.loads((tmp_path / "output" / "run.json").read_text()) == run
 
@@ -99,7 +103,7 @@ def test_run_and_grade_keep_acceptance_tests_outside_agent_project(tmp_path):
     assert report["task_success_rate"] == 0
     assert report["first_attempt_success"] == 0
     assert report["average_iterations"] == 1
-    assert report["average_llm_calls"] == 3
+    assert report["average_llm_calls"] == 4
     assert report["cases"][0]["agent_state"] == "DONE"
     assert report["cases"][0]["acceptance_returncode"] != 0
     assert not list(project.rglob("*acceptance*.py"))
@@ -129,7 +133,7 @@ def test_reference_model_passes_all_six_acceptance_suites(tmp_path):
     assert report["task_success_rate"] == 1
     assert report["first_attempt_success"] == 1
     assert report["average_iterations"] == 1
-    assert report["average_llm_calls"] == 3
+    assert report["average_llm_calls"] == 4
     assert len(report["cases"]) == 6
 
 
@@ -190,7 +194,7 @@ def test_validation_case_can_be_repaired_from_visible_failure(tmp_path):
     )
 
     run_cases(
-        SequenceModel(["spec", "plan", wrong, fixed]),
+        SequenceModel(["spec", "plan", wrong, fixed, '{"accepted": true, "reason": "Corrigido"}']),
         cases,
         tmp_path / "repaired",
         case_names=["05_validation"],
@@ -200,7 +204,7 @@ def test_validation_case_can_be_repaired_from_visible_failure(tmp_path):
     assert report["task_success_rate"] == 1
     assert report["first_attempt_success"] == 0
     assert report["average_iterations"] == 2
-    assert report["average_llm_calls"] == 4
+    assert report["average_llm_calls"] == 5
 
 
 def test_evaluation_rejects_changes_to_existing_visible_tests(tmp_path):
@@ -231,7 +235,9 @@ def test_evaluation_rejects_changes_to_existing_visible_tests(tmp_path):
     source_test = cases / "05_validation/project/tests/test_validation.py"
 
     run_cases(
-        SequenceModel(["spec", "plan", changed_test, fixed_code]),
+        SequenceModel(
+            ["spec", "plan", changed_test, fixed_code, '{"accepted": true, "reason": "Corrigido"}']
+        ),
         cases,
         tmp_path / "protected",
         case_names=["05_validation"],
@@ -255,6 +261,7 @@ def test_evaluation_cli_help():
     assert "--cases" in result.stdout
     assert "--output" in result.stdout
     assert "--case" in result.stdout
+    assert "--workers" in result.stdout
     grade = subprocess.run(
         ["uv", "run", "minicode-eval", "grade", "--help"],
         capture_output=True,
@@ -264,3 +271,46 @@ def test_evaluation_cli_help():
     assert grade.returncode == 0
     assert "--run" in grade.stdout
     assert "--case" in grade.stdout
+    assert "--workers" in grade.stdout
+
+
+def test_run_cases_executes_in_parallel_and_keeps_case_order(tmp_path):
+    cases = tmp_path / "cases"
+    for name in ("a", "b"):
+        project = cases / name / "project"
+        project.mkdir(parents=True)
+        (cases / name / "task.json").write_text(
+            json.dumps({"category": "teste", "task": f"Crie teste {name}"}), encoding="utf-8"
+        )
+
+    barrier = threading.Barrier(2, timeout=5)
+
+    class ConcurrentModel:
+        def complete(self, prompt, *, response_model=None):
+            if "Não implemente ainda" in prompt:
+                barrier.wait()
+                return "Critério: teste passa"
+            if response_model is None:
+                return "1. Criar teste"
+            if response_model.__name__ == "AcceptanceReview":
+                return '{"accepted": true, "reason": "Teste passou"}'
+            return json.dumps({
+                "files": [{"path": "test_ok.py", "content": "def test_ok():\n    assert True\n"}]
+            })
+
+    result = run_cases(ConcurrentModel(), cases, tmp_path / "out", workers=2)
+
+    assert [case["case"] for case in result["cases"]] == ["a", "b"]
+    assert all(case["agent_state"] == "DONE" for case in result["cases"])
+
+
+def test_evaluation_rejects_nonpositive_worker_count(tmp_path):
+    cases = tmp_path / "cases"
+    case = cases / "one"
+    (case / "project").mkdir(parents=True)
+    (case / "task.json").write_text('{"task": "x", "category": "x"}')
+
+    with pytest.raises(ValueError, match="workers"):
+        run_cases(ReferenceModel(), cases, tmp_path / "out", workers=0)
+    with pytest.raises(ValueError, match="workers"):
+        grade_cases(cases, tmp_path / "out", workers=0)

@@ -41,6 +41,15 @@ class FileChanges(BaseModel):
     files: list[FileChange] = Field(min_length=1)
 
 
+class AcceptanceReview(BaseModel):
+    """Revisão dos critérios de aceitação após os testes."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    accepted: bool
+    reason: str
+
+
 class State(StrEnum):
     RECEIVED = "RECEIVED"
     SPECIFIED = "SPECIFIED"
@@ -51,6 +60,19 @@ class State(StrEnum):
     DONE = "DONE"
     FAILED = "FAILED"
     UNVERIFIED = "UNVERIFIED"
+
+
+ALLOWED_TRANSITIONS = {
+    State.RECEIVED: {State.SPECIFIED, State.FAILED},
+    State.SPECIFIED: {State.PLANNED, State.FAILED},
+    State.PLANNED: {State.IMPLEMENTING, State.FAILED},
+    State.IMPLEMENTING: {State.VERIFYING, State.REPAIRING, State.FAILED},
+    State.VERIFYING: {State.DONE, State.REPAIRING, State.FAILED, State.UNVERIFIED},
+    State.REPAIRING: {State.VERIFYING, State.REPAIRING, State.FAILED},
+    State.DONE: set(),
+    State.FAILED: set(),
+    State.UNVERIFIED: set(),
+}
 
 
 class Agent:
@@ -91,6 +113,8 @@ class Agent:
 
     def _transition(self, state: State) -> None:
         """Atualiza o estado em memória e no histórico."""
+        if state not in ALLOWED_TRANSITIONS[self.state]:
+            raise ValueError(f"Transição inválida: {self.state.value} -> {state.value}")
         self.state = state
         self.trace.event("state", status=state.value)
 
@@ -104,12 +128,12 @@ class Agent:
             "com objetivo e critérios de aceitação verificáveis. Liste separadamente todas as "
             "restrições explícitas do pedido, inclusive tipos, exceções e limites. "
             "Não inclua código nem uma solução pronta. "
-            f"Não implemente ainda. Tarefa: {task}\n\nContexto do projeto:\n{context}"
+            f"Não implemente ainda. Tarefa: {task}\n\nContexto do projeto:\n{context}",
         )
         self.trace.document("specification", spec)
         self._transition(State.SPECIFIED)
         logger.info("Estado: %s", self.state.value)
-        logger.info("Especificação produzida:\n%s", spec)
+        logger.debug("Especificação produzida:\n%s", spec)
         plan = self._complete_turn(
             "plano",
             f"Tarefa original:\n{task}\n\nEspecificação:\n{spec}\n\n"
@@ -120,7 +144,7 @@ class Agent:
         self.trace.document("plan", plan)
         self._transition(State.PLANNED)
         logger.info("Estado: %s", self.state.value)
-        logger.info("Plano produzido:\n%s", plan)
+        logger.debug("Plano produzido:\n%s", plan)
         self._transition(State.IMPLEMENTING)
         logger.info("Estado: %s", self.state.value)
         prompt = self._implementation_prompt(task, spec, plan, context)
@@ -189,9 +213,23 @@ class Agent:
                     "pytest não está disponível no ambiente."
                 )
             if result.returncode == 0:
-                self._transition(State.DONE)
-                logger.info("Estado final: %s", self.state.value)
-                return result.stdout or "Testes concluídos com sucesso."
+                review = self._review_acceptance(task, spec, changes)
+                if review.accepted:
+                    self._transition(State.DONE)
+                    logger.info("Estado final: %s", self.state.value)
+                    return result.stdout or "Testes concluídos com sucesso."
+                self.trace.event("acceptance_rejected", reason=review.reason)
+                if attempt + 1 < self.max_attempts:
+                    self._transition(State.REPAIRING)
+                    feedback = self._repair_feedback(
+                        task, review.reason, [change.path for change in changes.files]
+                    )
+                    continue
+                self._transition(State.FAILED)
+                return (
+                    "Testes passaram, mas a revisão dos critérios rejeitou a solução: "
+                    f"{review.reason}"
+                )
             if attempt + 1 < self.max_attempts:
                 self._transition(State.REPAIRING)
                 logger.info("Estado: %s", self.state.value)
@@ -203,6 +241,26 @@ class Agent:
         self._transition(State.FAILED)
         logger.info("Estado final: %s", self.state.value)
         return f"Falha após {self.max_attempts} tentativa(s).\n{result.stdout}\n{result.stderr}"
+
+    def _review_acceptance(self, task: str, spec: str, changes: FileChanges) -> AcceptanceReview:
+        """Confere a proposta contra a tarefa e a especificação antes de concluir."""
+        files = "\n\n".join(f"--- {change.path} ---\n{change.content}" for change in changes.files)
+        prompt = (
+            "Revise a implementação contra cada critério de aceitação e restrição explícita. "
+            "Se não houver evidência suficiente nos arquivos e nos testes executados, rejeite. "
+            "Responda somente JSON com accepted (booleano) e reason (justificativa concreta).\n"
+            f"Tarefa:\n{task}\nEspecificação:\n{spec}\n"
+            f"Arquivos alterados:\n{files}\n"
+            f"Contexto atual do projeto:\n{self._project_context()}\n"
+            "Resultado: pytest -q retornou código 0."
+        )
+        answer = self._complete_turn("revisão de aceitação", prompt, AcceptanceReview)
+        try:
+            review = AcceptanceReview.model_validate_json(answer)
+        except ValidationError as error:
+            raise ValueError("Revisão de aceitação inválida") from error
+        self.trace.event("acceptance_review", accepted=review.accepted, reason=review.reason)
+        return review
 
     def _complete_turn(
         self,
