@@ -7,15 +7,14 @@ O MiniCode recebe uma tarefa em linguagem natural, consulta o modelo configurado
 - Python 3.11, 3.12 ou 3.13
 - [`uv`](https://docs.astral.sh/uv/)
 - A chave, o endpoint e o identificador de modelo fornecidos pela disciplina
-- `pytest` e as dependências necessárias para testar o projeto-alvo
+- Docker ativo; a imagem `minicode-pytest:py313` contém Python 3.13 e `pytest`
 
 ## Preparar o MiniCode
 
-Na pasta deste repositório, instale as dependências e crie o arquivo de configuração local:
+Na pasta deste repositório, instale as dependências, crie a configuração local e construa o sandbox:
 
 ```sh
-uv sync
-cp .env.example .env
+make setup
 ```
 
 Edite `.env` e preencha.
@@ -60,16 +59,16 @@ uv run minicode --project /caminho/para/meu-projeto --max-attempts 3 "Corrija os
 ## O que acontece durante a execução
 
 1. O MiniCode coleta até 20 arquivos de texto compatíveis, priorizando os testes existentes, com limite total aproximado de 24 mil caracteres para contextualizar a solicitação. Arquivos `.env`, chaves comuns e diretórios `.git`, `.aws` e `.ssh` são excluídos das ferramentas de leitura.
-2. O modelo gera uma especificação com critérios de aceitação.
-3. O modelo gera um plano numerado.
+2. O modelo gera uma especificação do comportamento esperado, com critérios de aceitação, sem código ou estrutura de arquivos.
+3. O modelo gera um plano numerado de ações, sem repetir os critérios da especificação.
 4. O modelo propõe o conteúdo integral dos arquivos em JSON.
-5. O MiniCode valida todos os caminhos antes de gravar os arquivos e executa `pytest -q` no projeto-alvo.
+5. O MiniCode valida todos os caminhos antes de gravar os arquivos e executa `pytest -q` em uma cópia filtrada do projeto no container Docker.
 6. Se os testes passarem, o modelo revisa a implementação diante da tarefa e dos critérios de aceitação. Uma rejeição impede `DONE` e inicia reparo quando ainda há tentativas.
-7. Se os testes falharem e houver tentativas restantes, o reparo recebe a tarefa original, o erro, os testes visíveis e o conteúdo atual dos arquivos propostos. A spec e o plano anteriores ficam de fora desse pedido para evitar repetir uma interpretação equivocada.
-8. Se pytest não encontrar testes (código 5) ou não estiver instalado, o resultado será `UNVERIFIED`; o agente não pedirá um reparo sem uma falha concreta.
+7. Se os testes falharem e houver tentativas restantes, o reparo recebe a tarefa original, o erro, os testes visíveis e o conteúdo atual dos arquivos propostos. O container inclui a raiz do projeto e `src/` no `PYTHONPATH` de `pytest -q`; para falhas de importação, o feedback pede ao modelo que confira nomes de arquivos, pacotes e imports. O agente também é instruído a recalcular valores esperados dos testes que criou. A spec e o plano anteriores ficam de fora desse pedido para evitar repetir uma interpretação equivocada.
+8. Se pytest não encontrar testes (código 5) ou Docker não estiver disponível, o resultado será `UNVERIFIED`; o agente não executará o código do projeto no host.
 9. O terminal mostra a saída da verificação e o estado final (`DONE`, `FAILED` ou `UNVERIFIED`). Os estados diferentes de `DONE` fazem o comando sair com código 1.
 
-O comando individual registra no terminal os turnos do modelo (etapa, duração e tamanho da resposta), os arquivos gravados, as transições de estado e o resultado do pytest. A especificação e o plano ficam no histórico da execução. O prompt completo, que inclui trechos do projeto, não é registrado.
+O comando individual mostra no terminal cada resposta integral do modelo, incluindo especificação, plano, JSON dos arquivos e revisão de aceitação, além das transições de estado e da saída do pytest em cada tentativa. A especificação e o plano também ficam no histórico da execução. O prompt completo, que inclui trechos do projeto, não é registrado.
 
 Cada execução salva um histórico em `<projeto-alvo>/.minicode/runs/<id>/`: `specification.md`, `plan.md`, `actions.jsonl` e `state.json`. O diretório é excluído do contexto enviado ao modelo e das ferramentas de escrita. `state.json` contém a tarefa, o estado, o resultado e os contadores de tentativas, chamadas ao modelo e testes; `actions.jsonl` registra as ferramentas, arquivos e erros. A saída dos testes também é registrada ali e pode conter dados exibidos pelos testes.
 
@@ -78,15 +77,15 @@ Na etapa de implementação, o MiniCode envia um JSON Schema gerado a partir do 
 ## Ferramentas e limites atuais
 
 - As operações de leitura e escrita ficam restritas ao diretório do projeto-alvo.
-- O modelo não recebe um shell arbitrário: o único comando disponível para verificação é `pytest -q`.
+- O modelo não recebe um shell arbitrário: o único comando disponível para verificação é `pytest -q` dentro do container.
 - O MiniCode pode editar arquivos de diferentes linguagens, mas a verificação automática atual é somente `pytest`. Projetos sem testes Python terminam como `UNVERIFIED`; isso não significa que a implementação esteja correta nem que esteja incorreta.
 - Os caminhos propostos são relativos à raiz informada por `--project`. O agente pode criar subpastas adequadas dentro dela, mas não pode gravar fora dela.
-- A execução dos testes tem limite de 120 segundos.
+- A execução dos testes tem limite de 120 segundos e ocorre em container sem rede, com recursos limitados, usuário sem privilégios e cópia do projeto somente leitura.
 - Arquivos `.env`, chaves `.pem`/`.key`, nomes contendo `secret`, `credential` ou `token`, e pastas `.git`, `.aws` e `.ssh` são protegidos contra leitura e escrita pelas ferramentas.
 - O MiniCode não cria um backup automático das alterações. Revise o `git diff` do projeto-alvo antes de aceitar o resultado.
 - A revisão de critérios é feita por modelo e pode errar. Testes de aceitação independentes continuam necessários para medir a correção da solução.
-- A proteção de caminhos e comandos é uma barreira básica, não um sandbox de sistema operacional. Testes executam código no mesmo ambiente do processo e podem ter efeitos colaterais.
-- Os testes do projeto-alvo precisam estar instalados no ambiente usado para iniciar o MiniCode e suas dependências devem estar disponíveis.
+- O código executado pelos testes fica dentro do Docker. O isolamento depende da configuração e da segurança do daemon Docker; o projeto original não é montado no container.
+- A imagem padrão contém Python 3.13 e `pytest`; dependências adicionais do projeto-alvo precisam ser incluídas na imagem antes de executar tarefas que as utilizem.
 
 ## Desenvolvimento do MiniCode
 
@@ -108,7 +107,7 @@ make check
 make evaluate
 ```
 
-`make setup` instala as dependências e cria `.env` a partir de `.env.example` somente se o arquivo ainda não existir; depois, preencha a configuração. Em `make run`, `PROJECT` usa o diretório atual por padrão e, sem `TASK`, o programa solicita a tarefa no terminal. `make check` executa testes e lint.
+`make setup` instala as dependências, cria `.env` a partir de `.env.example` somente se necessário e constrói a imagem Docker. Depois, preencha a configuração. `make sandbox` reconstrói apenas a imagem. Em `make run`, `PROJECT` usa o diretório atual por padrão e, sem `TASK`, o programa solicita a tarefa no terminal. `make check` executa testes e lint.
 
 `make evaluate` roda seis tarefas em cópias isoladas e salva `evaluation/results/<data>/run.json`. Os testes visíveis estão em `tests/` de cada projeto e os arquivos já existentes nessa pasta são somente leitura para o agente durante a avaliação. Após a execução, use `make grade RUN=evaluation/results/<data>` para rodar os testes externos de `checks/`, sem chamar o agente. O relatório `report.json` inclui `TaskSuccessRate`, `FirstAttemptSuccess`, `AverageIterations` e `AverageLLMCalls`. Veja o [README.md](README.md) para as definições dessas métricas.
 

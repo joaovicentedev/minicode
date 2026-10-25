@@ -3,7 +3,10 @@ import logging
 
 import pytest
 
-from minicode.agent import Agent, State
+from minicode.agent import Agent as ProductionAgent
+from minicode.agent import State
+from minicode.tools import DockerSandbox
+from tests.support import LocalAgent as Agent
 
 
 class SequenceModel:
@@ -44,6 +47,12 @@ def test_agent_completes_spec_plan_implementation_and_verification(tmp_path, cap
     assert "Turno LLM 1 (especificação)" in caplog.text
     assert "Turno LLM 2 (plano)" in caplog.text
     assert "Turno LLM 3 (implementação/reparo)" in caplog.text
+    assert "Resposta LLM 1 (especificação):\nSpec: calcule a resposta" in caplog.text
+    assert "Resposta LLM 2 (plano):\n1. Criar o teste" in caplog.text
+    assert "Resposta LLM 3 (implementação/reparo):" in caplog.text
+    assert "Resposta LLM 4 (revisão de aceitação):" in caplog.text
+    assert "Arquivo gravado: test_answer.py\ndef test_answer():" in caplog.text
+    assert "Saída do pytest (tentativa 1):" in caplog.text
 
 
 def test_agent_rejects_empty_task(tmp_path):
@@ -79,6 +88,27 @@ def test_agent_marks_empty_pytest_collection_as_unverified(tmp_path):
     assert (tmp_path / "web-project" / "index.html").exists()
 
 
+def test_agent_does_not_run_target_code_on_host_without_docker(tmp_path):
+    model = SequenceModel(
+        [
+            "spec",
+            "plan",
+            json.dumps(
+                {"files": [{"path": "test_example.py", "content": "def test_ok(): assert True\n"}]}
+            ),
+        ]
+    )
+    agent = ProductionAgent(
+        model, tmp_path, sandbox=DockerSandbox(docker=str(tmp_path / "missing-docker"))
+    )
+
+    result = agent.run("Crie um teste")
+
+    assert agent.state is State.UNVERIFIED
+    assert "Docker não está instalado" in result
+    assert len(model.prompts) == 3
+
+
 def test_agent_repair_feedback_includes_current_files_and_test_error(tmp_path):
     agent = Agent(SequenceModel([]), tmp_path)
     agent.tools.write_file("main.py", "print('old')")
@@ -92,6 +122,67 @@ def test_agent_repair_feedback_includes_current_files_and_test_error(tmp_path):
     assert "isinstance(True, int)" in feedback
 
 
+def test_agent_repair_feedback_explains_import_failure(tmp_path):
+    agent = Agent(SequenceModel([]), tmp_path)
+
+    feedback = agent._repair_feedback(
+        "Crie calcular", "ModuleNotFoundError: No module named 'calculo'", []
+    )
+
+    assert "raiz e src/ no PYTHONPATH" in feedback
+    assert "nomes de arquivos, pacotes e imports" in feedback
+
+
+def test_agent_repairs_generated_import_and_test_expectations(tmp_path):
+    first = json.dumps(
+        {
+            "files": [
+                {
+                    "path": "src/calculo.py",
+                    "content": "def calcular(x):\n    return x*x + 5*x - 2\n",
+                },
+                {
+                    "path": "tests/test_calculo.py",
+                    "content": "from src.calculo import calcular\n\n"
+                    "def test_positive():\n    assert calcular(2) == 14\n",
+                },
+            ]
+        }
+    )
+    repaired = json.dumps(
+        {
+            "files": [
+                {"path": "pytest.ini", "content": "[pytest]\npythonpath = src\n"},
+                {
+                    "path": "tests/test_calculo.py",
+                    "content": "from calculo import calcular\n\n"
+                    "def test_positive():\n    assert calcular(2) == 12\n\n"
+                    "def test_negative():\n    assert calcular(-2) == -8\n\n"
+                    "def test_zero():\n    assert calcular(0) == -2\n",
+                },
+            ]
+        }
+    )
+    model = SequenceModel(
+        [
+            "spec",
+            "plan",
+            first,
+            repaired,
+            '{"accepted": true, "reason": "Casos conferidos contra a tarefa"}',
+        ]
+    )
+
+    result = Agent(model, tmp_path).run("Crie calcular(x) = x² + 5x - 2 e testes")
+
+    assert "3 passed" in result
+    assert "FAILED tests/test_calculo.py" in model.prompts[3]
+    assert "recalcule-os" in model.prompts[3]
+    assert "Para exemplos numéricos, recalcule o resultado" in model.prompts[4]
+    assert "Se pytest passou e não houver divergência concreta" in model.prompts[4]
+    assert "nunca rejeite dizendo que todos os critérios estão corretos" in model.prompts[4]
+
+
 def test_implementation_prompt_allows_project_subdirectories():
     prompt = Agent._implementation_prompt("Crie um app", "spec", "plan")
 
@@ -100,6 +191,8 @@ def test_implementation_prompt_allows_project_subdirectories():
     assert "nunca podem sair dela" in prompt
     assert "isinstance(True, int)" in prompt
     assert "Argumentos padrão mutáveis" in prompt
+    assert "raiz e src/ no PYTHONPATH" in prompt
+    assert "valores esperados" in prompt
 
 
 def test_agent_parses_file_payload():
@@ -152,9 +245,16 @@ def test_agent_prompts_preserve_explicit_task_constraints(tmp_path):
 
     agent.run("Rejeite bool mesmo sendo subtipo de int")
 
-    assert "restrições explícitas" in model.prompts[0]
+    assert "Restrições explícitas" in model.prompts[0]
+    assert "tipos, exceções e limites somente quando o pedido os definir" in model.prompts[0]
+    assert "use o mesmo valor em todo o texto" in model.prompts[0]
     assert "Não inclua código" in model.prompts[0]
+    assert "nomes de arquivos, estrutura de diretórios" in model.prompts[0]
     assert "Tarefa original:\nRejeite bool" in model.prompts[1]
+    assert "uma única lista numerada" in model.prompts[1]
+    assert "verificar com pytest -q" in model.prompts[1]
+    assert "Não repita o objetivo, os critérios de aceitação" in model.prompts[1]
+    assert "não indique outro comando de teste" in model.prompts[1]
     assert "não inclua código pronto" in model.prompts[1]
     assert "A tarefa original prevalece" in model.prompts[2]
 

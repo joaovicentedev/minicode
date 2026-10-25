@@ -2,9 +2,10 @@ import json
 
 import pytest
 
-from minicode.agent import Agent, State
-from minicode.tools import ProjectTools
+from minicode.agent import State
 from minicode.trace import RunTrace
+from tests.support import LocalAgent as Agent
+from tests.support import LocalProjectTools as ProjectTools
 
 
 class SequenceModel:

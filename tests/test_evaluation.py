@@ -7,7 +7,9 @@ from pathlib import Path
 import pytest
 
 from minicode.evaluation import grade_cases, run_cases, select_cases
-from minicode.tools import ProjectTools
+from minicode.tools import DockerSandbox
+from tests.support import LocalProjectTools as ProjectTools
+from tests.support import LocalSandbox
 
 
 class SequenceModel:
@@ -90,7 +92,7 @@ def test_run_and_grade_keep_acceptance_tests_outside_agent_project(tmp_path):
         ]
     )
 
-    run = run_cases(model, cases, tmp_path / "output")
+    run = run_cases(model, cases, tmp_path / "output", sandbox=LocalSandbox())
 
     project = tmp_path / "output" / "one" / "project"
     assert run["cases"][0]["agent_state"] == "DONE"
@@ -98,7 +100,7 @@ def test_run_and_grade_keep_acceptance_tests_outside_agent_project(tmp_path):
     assert not list(project.rglob("*acceptance*.py"))
     assert json.loads((tmp_path / "output" / "run.json").read_text()) == run
 
-    report = grade_cases(cases, tmp_path / "output")
+    report = grade_cases(cases, tmp_path / "output", sandbox=LocalSandbox())
 
     assert report["task_success_rate"] == 0
     assert report["first_attempt_success"] == 0
@@ -109,7 +111,7 @@ def test_run_and_grade_keep_acceptance_tests_outside_agent_project(tmp_path):
     assert not list(project.rglob("*acceptance*.py"))
     assert json.loads((tmp_path / "output" / "report.json").read_text()) == report
     with pytest.raises(ValueError):
-        run_cases(model, cases, tmp_path / "output")
+        run_cases(model, cases, tmp_path / "output", sandbox=LocalSandbox())
 
 
 def test_all_evaluation_cases_have_required_categories_and_checks():
@@ -127,8 +129,8 @@ def test_all_evaluation_cases_have_required_categories_and_checks():
 def test_reference_model_passes_all_six_acceptance_suites(tmp_path):
     cases = Path(__file__).resolve().parents[1] / "evaluation" / "cases"
 
-    run_cases(ReferenceModel(), cases, tmp_path / "results")
-    report = grade_cases(cases, tmp_path / "results")
+    run_cases(ReferenceModel(), cases, tmp_path / "results", sandbox=LocalSandbox())
+    report = grade_cases(cases, tmp_path / "results", sandbox=LocalSandbox())
 
     assert report["task_success_rate"] == 1
     assert report["first_attempt_success"] == 1
@@ -143,13 +145,33 @@ def test_select_and_run_only_validation_case(tmp_path):
     with pytest.raises(ValueError, match="desconhecido"):
         select_cases(cases, ["missing"])
 
-    run = run_cases(ReferenceModel(), cases, tmp_path / "single", case_names=["05_validation"])
-    report = grade_cases(cases, tmp_path / "single")
+    run = run_cases(
+        ReferenceModel(), cases, tmp_path / "single", case_names=["05_validation"],
+        sandbox=LocalSandbox(),
+    )
+    report = grade_cases(cases, tmp_path / "single", sandbox=LocalSandbox())
 
     assert [case["case"] for case in run["cases"]] == ["05_validation"]
     assert [case["case"] for case in report["cases"]] == ["05_validation"]
     assert report["task_success_rate"] == 1
     assert not (tmp_path / "single" / "01_function").exists()
+
+
+def test_grade_reports_missing_docker_instead_of_false_metric(tmp_path):
+    cases = tmp_path / "cases"
+    case = cases / "one"
+    (case / "checks").mkdir(parents=True)
+    (case / "task.json").write_text('{"category":"teste","task":"ok"}')
+    output = tmp_path / "output"
+    project = output / "one" / "project"
+    trace = project / ".minicode" / "runs" / "one"
+    trace.mkdir(parents=True)
+    (trace / "state.json").write_text('{"status":"DONE","attempts":1,"llm_calls":4}')
+
+    with pytest.raises(RuntimeError, match="Docker não está instalado"):
+        grade_cases(cases, output, sandbox=DockerSandbox(docker=str(tmp_path / "missing")))
+
+    assert not (output / "report.json").exists()
 
 
 def test_visible_validation_failure_identifies_boolean_input(tmp_path):
@@ -198,8 +220,9 @@ def test_validation_case_can_be_repaired_from_visible_failure(tmp_path):
         cases,
         tmp_path / "repaired",
         case_names=["05_validation"],
+        sandbox=LocalSandbox(),
     )
-    report = grade_cases(cases, tmp_path / "repaired")
+    report = grade_cases(cases, tmp_path / "repaired", sandbox=LocalSandbox())
 
     assert report["task_success_rate"] == 1
     assert report["first_attempt_success"] == 0
@@ -241,9 +264,10 @@ def test_evaluation_rejects_changes_to_existing_visible_tests(tmp_path):
         cases,
         tmp_path / "protected",
         case_names=["05_validation"],
+        sandbox=LocalSandbox(),
     )
     generated_test = tmp_path / "protected/05_validation/project/tests/test_validation.py"
-    report = grade_cases(cases, tmp_path / "protected")
+    report = grade_cases(cases, tmp_path / "protected", sandbox=LocalSandbox())
 
     assert generated_test.read_text(encoding="utf-8") == source_test.read_text(encoding="utf-8")
     assert report["task_success_rate"] == 1
@@ -298,7 +322,9 @@ def test_run_cases_executes_in_parallel_and_keeps_case_order(tmp_path):
                 "files": [{"path": "test_ok.py", "content": "def test_ok():\n    assert True\n"}]
             })
 
-    result = run_cases(ConcurrentModel(), cases, tmp_path / "out", workers=2)
+    result = run_cases(
+        ConcurrentModel(), cases, tmp_path / "out", workers=2, sandbox=LocalSandbox()
+    )
 
     assert [case["case"] for case in result["cases"]] == ["a", "b"]
     assert all(case["agent_state"] == "DONE" for case in result["cases"])

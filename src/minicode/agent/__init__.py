@@ -9,7 +9,7 @@ from time import perf_counter
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from minicode.llm import LanguageModel
-from minicode.tools import ProjectTools
+from minicode.tools import ProjectTools, TestSandbox
 from minicode.trace import RunTrace
 
 logger = logging.getLogger(__name__)
@@ -84,11 +84,12 @@ class Agent:
         project: Path,
         max_attempts: int = 2,
         read_only_paths: set[str] | None = None,
+        sandbox: TestSandbox | None = None,
     ):
         if max_attempts < 1:
             raise ValueError("max_attempts deve ser pelo menos 1")
         self.model = model
-        self.tools = ProjectTools(project, read_only_paths=read_only_paths)
+        self.tools = ProjectTools(project, read_only_paths=read_only_paths, sandbox=sandbox)
         self.max_attempts = max_attempts
         self.state = State.RECEIVED
         self._turn = 0
@@ -124,11 +125,18 @@ class Agent:
         logger.info("Tarefa recebida; lendo contexto do projeto %s", self.tools.root)
         spec = self._complete_turn(
             "especificação",
-            "Produza uma especificação concisa, sem adicionar funcionalidades não pedidas, "
-            "com objetivo e critérios de aceitação verificáveis. Liste separadamente todas as "
-            "restrições explícitas do pedido, inclusive tipos, exceções e limites. "
-            "Não inclua código nem uma solução pronta. "
-            f"Não implemente ainda. Tarefa: {task}\n\nContexto do projeto:\n{context}",
+            "Você está na etapa SPEC. Descreva somente o comportamento observável pedido, "
+            "sem adicionar funcionalidades. Use três seções curtas: Objetivo, Restrições "
+            "explícitas e Critérios de aceitação verificáveis. Nas restrições, registre "
+            "tipos, exceções e limites somente quando o pedido os definir; não invente "
+            "contratos. Cada critério deve permitir conferir entrada e resultado. "
+            "Se incluir exemplos numéricos, calcule cada resultado a partir da expressão "
+            "original, confira sinais e operações e use o mesmo valor em todo o texto; "
+            "se não tiver certeza, omita o exemplo. Não inclua código, pseudocódigo, "
+            "blocos de código, nomes de arquivos, estrutura de diretórios, imports, "
+            "bibliotecas, comandos, passos de implementação ou afirmações de que testes "
+            "já foram executados. Não implemente ainda. "
+            f"Tarefa original:\n{task}\n\nContexto do projeto:\n{context}",
         )
         self.trace.document("specification", spec)
         self._transition(State.SPECIFIED)
@@ -136,10 +144,18 @@ class Agent:
         logger.debug("Especificação produzida:\n%s", spec)
         plan = self._complete_turn(
             "plano",
+            "Você está na etapa PLAN. Crie uma única lista numerada e enxuta de ações "
+            "para satisfazer a tarefa: localizar os arquivos relevantes, implementar, "
+            "criar ou ajustar testes quando necessário e verificar com pytest -q. "
+            "Considere os testes existentes antes de propor novos arquivos. Cite caminhos "
+            "somente quando forem conhecidos pelo contexto ou necessários ao plano. "
+            "A tarefa original prevalece se a especificação contiver erro ou contradição. "
+            "Não repita o objetivo, os critérios de aceitação, as contas ou os exemplos da "
+            "spec. Não duplique a lista em outra seção, não indique outro comando de "
+            "teste e não inclua código pronto. Descreva apenas os passos futuros; não "
+            "afirme que já executou algum deles.\n"
             f"Tarefa original:\n{task}\n\nEspecificação:\n{spec}\n\n"
-            "Crie um plano numerado e enxuto. Preserve todos os requisitos explícitos "
-            "da tarefa e considere os testes existentes antes de propor novos arquivos. "
-            "Descreva apenas os passos; não inclua código pronto.",
+            f"Contexto do projeto:\n{context}",
         )
         self.trace.document("plan", plan)
         self._transition(State.PLANNED)
@@ -181,6 +197,7 @@ class Agent:
             for change in changes.files:
                 self.tools.write_file(change.path, change.content)
                 self.trace.event("write", path=change.path)
+                logger.info("Arquivo gravado: %s\n%s", change.path, change.content)
             logger.info("Arquivos gravados: %s", ", ".join(change.path for change in changes.files))
             self._transition(State.VERIFYING)
             logger.info("Estado: %s; executando pytest -q", self.state.value)
@@ -193,6 +210,11 @@ class Agent:
                 stderr=result.stderr,
             )
             logger.info("pytest terminou com código %s", result.returncode)
+            logger.info(
+                "Saída do pytest (tentativa %d):\n%s",
+                attempt + 1,
+                (result.stdout + "\n" + result.stderr).strip() or "(sem saída)",
+            )
             if result.returncode == 5:
                 self._transition(State.UNVERIFIED)
                 logger.warning(
@@ -206,12 +228,9 @@ class Agent:
                 )
             if result.returncode is None:
                 self._transition(State.UNVERIFIED)
-                logger.warning("pytest não está disponível no ambiente")
+                logger.warning("Verificação indisponível: %s", result.stderr)
                 logger.info("Estado final: %s", self.state.value)
-                return (
-                    "Implementação gravada, mas não validada: "
-                    "pytest não está disponível no ambiente."
-                )
+                return f"Implementação gravada, mas não validada: {result.stderr}"
             if result.returncode == 0:
                 review = self._review_acceptance(task, spec, changes)
                 if review.accepted:
@@ -246,9 +265,18 @@ class Agent:
         """Confere a proposta contra a tarefa e a especificação antes de concluir."""
         files = "\n\n".join(f"--- {change.path} ---\n{change.content}" for change in changes.files)
         prompt = (
-            "Revise a implementação contra cada critério de aceitação e restrição explícita. "
-            "Se não houver evidência suficiente nos arquivos e nos testes executados, rejeite. "
-            "Responda somente JSON com accepted (booleano) e reason (justificativa concreta).\n"
+            "Compare a implementação com a tarefa original e cada critério de aceitação. "
+            "A tarefa original prevalece se a especificação ou os testes gerados estiverem "
+            "errados. Para exemplos numéricos, recalcule o resultado e compare-o com o valor "
+            "esperado no teste e com o código. Responda accepted=false somente se encontrar "
+            "uma divergência concreta ou um requisito explícito sem evidência nos arquivos. "
+            "Nesse caso, identifique o requisito e, quando aplicável, informe a entrada, o "
+            "resultado correto e o resultado encontrado. Se pytest passou e não houver "
+            "divergência concreta, responda accepted=true. Não exija cálculos anteriores, "
+            "justificativas extras ou evidências externas à tarefa e aos arquivos. A razão "
+            "deve concordar com accepted: nunca rejeite dizendo que todos os critérios estão "
+            "corretos. Responda somente JSON com accepted (booleano) e reason (justificativa "
+            "concreta).\n"
             f"Tarefa:\n{task}\nEspecificação:\n{spec}\n"
             f"Arquivos alterados:\n{files}\n"
             f"Contexto atual do projeto:\n{self._project_context()}\n"
@@ -268,7 +296,7 @@ class Agent:
         prompt: str,
         response_model: type[BaseModel] | None = None,
     ) -> str:
-        """Registra metadados da chamada ao modelo sem despejar o prompt no log."""
+        """Mostra a resposta do modelo sem despejar o prompt no log."""
         self._turn += 1
         self.trace.event("llm", number=self._turn, stage=stage)
         started = perf_counter()
@@ -286,6 +314,7 @@ class Agent:
             len(response),
             elapsed,
         )
+        logger.info("Resposta LLM %d (%s):\n%s", self._turn, stage, response)
         return response
 
     def _repair_feedback(self, task: str, failure: str, paths: list[str]) -> str:
@@ -327,6 +356,15 @@ class Agent:
                 break
         tests = "\n\n".join(visible_tests) or "(sem testes visíveis)"
         read_only = ", ".join(sorted(self.tools.read_only_paths)) or "(nenhum)"
+        import_guidance = (
+            "A falha ocorreu na importação/coleta de testes. Confira se o módulo importado "
+            "existe no caminho usado pelo teste. O harness inclui a raiz e src/ no PYTHONPATH "
+            "de pytest -q; confira nomes de arquivos, pacotes e imports. Corrija também "
+            "testes criados nesta execução quando "
+            "o import ou o valor esperado estiver errado; não altere arquivos somente leitura.\n"
+            if "ModuleNotFoundError" in failure or "ImportError" in failure
+            else ""
+        )
         return (
             "A verificação encontrou falhas. Antes de responder, compare a entrada que falhou, "
             "o resultado esperado e o comportamento do código atual. Corrija a causa da falha; "
@@ -334,6 +372,9 @@ class Agent:
             "salvo quando a tarefa pedir sua alteração. Mantenha os caminhos existentes quando "
             "possível e nunca escreva fora da raiz. Responda somente com JSON no formato "
             '{"files": [{"path": "caminho/relativo", "content": "conteúdo integral"}]}.\n'
+            f"{import_guidance}"
+            "Se houver valores esperados em testes criados por você, recalcule-os a partir da "
+            "tarefa original; não trate um teste gerado como fonte de verdade.\n"
             f"{PYTHON_REMINDERS}\n"
             f"Tarefa original e suas restrições:\n{task}\n\n"
             f"Arquivos somente leitura:\n{read_only}\n\n"
@@ -353,6 +394,11 @@ class Agent:
             "Leia os testes existentes no contexto e use-os como referência. "
             "A tarefa original prevalece quando a especificação ou o plano omitirem uma restrição. "
             "Ao adicionar testes, use a pasta tests/ e nomes que não dupliquem outros testes. "
+            "Garanta que os testes importem o código com pytest -q executado na raiz do projeto: "
+            "o harness inclui a raiz e src/ no PYTHONPATH, mas os nomes de módulos e pacotes "
+            "precisam corresponder aos arquivos criados. Confira os valores esperados calculando "
+            "cada caso diretamente "
+            "da tarefa original, inclusive sinais e limites. "
             "Retorne somente um objeto JSON no formato "
             '{"files": [{"path": "caminho/relativo", "content": "conteúdo integral"}]}. '
             "Inclua arquivos de teste quando adequado.\n"

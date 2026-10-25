@@ -1,16 +1,20 @@
-.PHONY: help setup run test lint check evaluate grade
+.PHONY: help setup sandbox run test lint check evaluate grade
 
 PROJECT ?= .
 TASK ?=
 UV ?= uv
 
 help:
-	@echo "Alvos: setup, run, test, lint, check, evaluate, grade"
+	@echo "Alvos: setup, sandbox, run, test, lint, check, evaluate, grade"
 	@echo 'Exemplo: make run PROJECT=./projects/snake TASK="Crie o jogo da cobrinha"'
 
 setup:
 	$(UV) sync
 	@test -f .env || cp .env.example .env
+	$(MAKE) sandbox
+
+sandbox:
+	docker build -f Dockerfile.sandbox -t minicode-pytest:py313 .
 
 run:
 	$(UV) run minicode --project "$(PROJECT)" $(if $(TASK),"$(TASK)")

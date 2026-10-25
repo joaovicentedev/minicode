@@ -3,17 +3,14 @@
 import argparse
 import json
 import logging
-import os
 import shutil
-import subprocess
-import sys
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from pathlib import Path
 
 from minicode.agent import Agent
 from minicode.llm import LanguageModel, OpenAIChatModel
-from minicode.tools import CommandResult
+from minicode.tools import CommandResult, DockerSandbox, TestSandbox
 
 
 def select_cases(cases_dir: Path, names: list[str] | None = None) -> list[Path]:
@@ -37,6 +34,7 @@ def run_cases(
     max_attempts: int = 2,
     case_names: list[str] | None = None,
     workers: int = 4,
+    sandbox: TestSandbox | None = None,
 ) -> dict:
     """Executa os casos em projetos isolados e guarda os resultados iniciais."""
     cases = select_cases(cases_dir, case_names)
@@ -54,7 +52,8 @@ def run_cases(
             for path in (project / "tests").rglob("test_*.py")
         }
         agent = Agent(
-            model, project, max_attempts=max_attempts, read_only_paths=existing_tests
+            model, project, max_attempts=max_attempts, read_only_paths=existing_tests,
+            sandbox=sandbox,
         )
         error = None
         try:
@@ -80,40 +79,16 @@ def run_cases(
     return run
 
 
-def run_acceptance(project: Path, checks: Path) -> CommandResult:
+def run_acceptance(
+    project: Path, checks: Path, sandbox: TestSandbox | None = None
+) -> CommandResult:
     """Roda somente os testes externos contra o projeto produzido."""
-    environment = os.environ.copy()
-    environment["PYTHONPATH"] = os.pathsep.join(
-        part for part in (str(project.resolve()), environment.get("PYTHONPATH", "")) if part
-    )
-    environment["PYTHONDONTWRITEBYTECODE"] = "1"
-    try:
-        completed = subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "pytest",
-                "-q",
-                "-p",
-                "no:cacheprovider",
-                str(checks.resolve()),
-            ],
-            cwd=project,
-            env=environment,
-            capture_output=True,
-            text=True,
-            timeout=120,
-            check=False,
-        )
-        return CommandResult(completed.returncode, completed.stdout, completed.stderr)
-    except subprocess.TimeoutExpired as error:
-        stdout = error.stdout.decode() if isinstance(error.stdout, bytes) else (error.stdout or "")
-        stderr = error.stderr.decode() if isinstance(error.stderr, bytes) else (error.stderr or "")
-        return CommandResult(124, stdout, stderr + "\nTestes de aceitação excederam 120 segundos")
+    return (sandbox or DockerSandbox()).run(project, 120, checks)
 
 
 def grade_cases(
-    cases_dir: Path, output_dir: Path, case_names: list[str] | None = None, workers: int = 4
+    cases_dir: Path, output_dir: Path, case_names: list[str] | None = None,
+    workers: int = 4, sandbox: TestSandbox | None = None,
 ) -> dict:
     """Calcula as métricas sem chamar o agente nem alterar as soluções."""
     if workers < 1:
@@ -128,7 +103,9 @@ def grade_cases(
             raise ValueError(f"Execução não encontrada para {case.name}")
         state = json.loads(traces[-1].read_text(encoding="utf-8"))
         metadata = json.loads((case / "task.json").read_text(encoding="utf-8"))
-        acceptance = run_acceptance(project, case / "checks")
+        acceptance = run_acceptance(project, case / "checks", sandbox)
+        if acceptance.returncode is None:
+            raise RuntimeError(acceptance.stderr)
         success = state["status"] == "DONE" and acceptance.returncode == 0
         return {
             "case": case.name,
@@ -196,5 +173,5 @@ def main() -> None:
             metrics = {key: value for key, value in report.items() if key != "cases"}
             print(json.dumps(metrics, indent=2))
             print(f"Relatório: {args.run / 'report.json'}")
-    except (OSError, ValueError) as error:
+    except (OSError, RuntimeError, ValueError) as error:
         parser.exit(1, f"minicode-eval: {error}\n")

@@ -1,6 +1,6 @@
 import pytest
 
-from minicode.tools import ProjectTools
+from tests.support import LocalProjectTools as ProjectTools
 
 
 def test_project_tools_reads_writes_and_lists_files(tmp_path):
@@ -65,6 +65,23 @@ def test_project_tools_runs_pytest(tmp_path):
     result = tools.run_tests()
 
     assert result.returncode == 0
+
+
+def test_project_tools_imports_modules_from_project_and_src(tmp_path):
+    tools = ProjectTools(tmp_path)
+    tools.write_file("src/calculo.py", "def calcular(x):\n    return x*x + 5*x - 2\n")
+    tools.write_file(
+        "tests/test_calculo.py",
+        "from src.calculo import calcular as package_calcular\n"
+        "from calculo import calcular as module_calcular\n\n"
+        "def test_package_import():\n    assert package_calcular(2) == 12\n\n"
+        "def test_module_import():\n    assert module_calcular(-2) == -8\n",
+    )
+
+    result = tools.run_tests()
+
+    assert result.returncode == 0
+    assert "2 passed" in result.stdout
 
 
 def test_project_tools_reports_empty_test_collection(tmp_path):

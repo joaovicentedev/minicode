@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0a1222">
+  <title>MiniCode — Arquitetura e execução</title>
+  <link rel="stylesheet" href="slides.css">
+  <script defer src="slides.js"></script>
+</head>
+<body>
+  <div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>
+  <main id="deck" aria-label="Apresentação MiniCode">
+    <section class="slide hero" data-title="Visão geral">
+      <div class="eyebrow"><span class="live-dot"></span> MINICODE / VISÃO GERAL</div>
+      <div class="hero-grid">
+        <div>
+          <p class="kicker">AGENTE DE PROGRAMAÇÃO COM LLM</p>
+          <h1>MiniCode: agente<br><em>de programação.</em></h1>
+          <p class="lead">Um agente que especifica, planeja, altera um projeto real e verifica o resultado antes de concluir.</p>
+          <div class="hero-tags"><span>Qwen 14B</span><span>Spec-driven</span><span>Harness verificável</span></div>
+        </div>
+        <div class="hero-art" aria-hidden="true">
+          <div class="orbit orbit-outer"></div><div class="orbit orbit-inner"></div>
+          <div class="center-node">M<span>C</span></div>
+          <div class="orbit-label label-a">SPEC</div><div class="orbit-label label-b">PATCH</div><div class="orbit-label label-c">TEST</div>
+        </div>
+      </div>
+      <div class="slide-note">01 / CONTEXTO <span>Arquitetura · execução · avaliação</span></div>
+    </section>
+
+    <section class="slide" hidden data-title="Entrada e resultado">
+      <div class="eyebrow">01 / ENTRADA E RESULTADO</div>
+      <h2>Entrada e saída<br><em>do MiniCode.</em></h2>
+      <p class="subtitle">O MiniCode recebe uma tarefa em linguagem natural, altera arquivos de um projeto local e verifica o resultado da execução.</p>
+      <div class="compare-grid">
+        <div class="panel muted"><div class="panel-label">ENTRADA</div><p class="quote">“Valide idades inteiras de 0 a 120. Booleanos devem ser rejeitados.”</p><small>Caso 05 · validação de dados</small></div>
+        <div class="arrow-block">→</div>
+        <div class="panel accent"><div class="panel-label">SAÍDA DO MINICODE</div><ul class="clean-list"><li>Arquivo alterado no projeto</li><li>Testes executados</li><li>Resultado e histórico auditáveis</li></ul></div>
+      </div>
+      <div class="bottom-callout">O modelo propõe. O programa controla as etapas, os arquivos e a verificação.</div>
+    </section>
+
+    <section class="slide" hidden data-title="Arquitetura">
+      <div class="eyebrow">02 / ARQUITETURA</div>
+      <h2>Arquitetura do agente<br><em>e interfaces externas.</em></h2>
+      <div class="architecture">
+        <div class="arch-top"><div class="arch-box input"><span>ENTRADA</span><strong>CLI + tarefa</strong></div><span class="connector">→</span><div class="arch-box core"><span>ORQUESTRAÇÃO</span><strong>Agent + estados</strong><small>spec · plano · tentativas · revisão</small></div></div>
+        <div class="arch-bottom"><div class="arch-box"><span>PORTA</span><strong>LanguageModel</strong><small>adaptador OpenAIChatModel<br>endpoint Qwen 14B</small></div><div class="arch-box"><span>FERRAMENTAS</span><strong>ProjectTools</strong><small>listar · ler · gravar · DockerSandbox</small></div><div class="arch-box"><span>HISTÓRICO</span><strong>RunTrace</strong><small>documentos · eventos · estado</small></div></div>
+      </div>
+      <div class="caption">A dependência do agente com o modelo passa por uma porta; o adaptador traduz chamadas para o endpoint externo.</div>
+    </section>
+
+    <section class="slide" hidden data-title="Fluxo do agente">
+      <div class="eyebrow">03 / CICLO OPERACIONAL</div>
+      <h2>Fluxo de execução<br><em>e transições de estado.</em></h2>
+      <div class="flow">
+        <div><b>01</b><strong>Receber</strong><small>tarefa + contexto</small></div><div><b>02</b><strong>Especificar</strong><small>critérios verificáveis</small></div><div><b>03</b><strong>Planejar</strong><small>passos numerados</small></div><div><b>04</b><strong>Implementar</strong><small>proposta JSON</small></div><div><b>05</b><strong>Verificar</strong><small>pytest + revisão</small></div>
+      </div>
+      <div class="branch"><span class="success">✓ passou → DONE</span><span class="failure">↻ falhou → feedback → REPAIRING → VERIFYING</span></div>
+      <div class="code-strip">RECEIVED → SPECIFIED → PLANNED → IMPLEMENTING → VERIFYING → DONE</div>
+      <p class="footnote">Transições inválidas são rejeitadas pelo programa. Sem testes coletados ou sem pytest, o estado final é UNVERIFIED.</p>
+    </section>
+
+    <section class="slide" hidden data-title="Spec e hardness">
+      <div class="eyebrow">04 / SPEC-DRIVEN + AGENT HARDNESS</div>
+      <h2>Especificação, plano<br><em>e regras de conclusão.</em></h2>
+      <div class="two-col">
+        <div class="panel"><div class="panel-label">ANTES DO CÓDIGO</div><h3>Specification → Plan</h3><p>A spec contém objetivo e critérios de aceitação. O plano descreve os passos. A implementação só é solicitada depois dos dois documentos.</p></div>
+        <div class="panel"><div class="panel-label">ANTES DO SUCESSO</div><h3>Tests → Review → DONE</h3><p>O estado <code>DONE</code> exige <code>pytest</code> com código 0 e revisão de aceitação aprovada. Falha leva ao reparo ou a <code>FAILED</code>.</p></div>
+      </div>
+      <div class="rule-bar"><span>SPECIFIED ⇏ IMPLEMENTING</span><span>TESTS FAILED ⇏ DONE</span></div>
+      <p class="footnote">A qualidade dos critérios da spec é avaliada pelo modelo; ainda não há validação estrutural automática desse texto.</p>
+    </section>
+
+    <section class="slide" hidden data-title="Ferramentas e segurança">
+      <div class="eyebrow">05 / SUPERFÍCIE DE AÇÃO</div>
+      <h2>Ferramentas disponíveis<br><em>e restrições de acesso.</em></h2>
+      <div class="tool-grid">
+        <div class="tool"><span>01</span><strong>list_files</strong><small>arquivos visíveis do projeto</small></div><div class="tool"><span>02</span><strong>read_file</strong><small>leitura dentro da raiz</small></div><div class="tool"><span>03</span><strong>write_file</strong><small>caminho validado antes da gravação</small></div><div class="tool"><span>04</span><strong>run_tests</strong><small>somente <code>pytest -q</code></small></div>
+      </div>
+      <div class="security-line"><span>↳</span> O projeto é copiado sem arquivos protegidos. O container recebe essa cópia somente leitura, sem rede, sem privilégios e com limites de recursos.</div>
+      <p class="footnote">Sem Docker ou sem a imagem de testes, o estado é UNVERIFIED. O código do projeto não é executado no host.</p>
+    </section>
+
+    <section class="slide" hidden data-title="Reparo e rastreabilidade">
+      <div class="eyebrow">06 / REPAIR LOOP + EVIDÊNCIA</div>
+      <h2>Ciclo de reparo<br><em>e registro da execução.</em></h2>
+      <div class="two-col uneven">
+        <div class="panel"><div class="panel-label">CICLO DE REPARO</div><div class="repair-steps"><span>proposta de arquivos</span><i>↓</i><span>pytest ou revisão falha</span><i>↓</i><span>erro + tarefa + arquivos atuais</span><i>↓</i><span>nova proposta, até o limite</span></div></div>
+        <div class="panel dark"><div class="panel-label">.minicode/runs/&lt;id&gt;/</div><div class="file-row"><code>specification.md</code><span>critérios</span></div><div class="file-row"><code>plan.md</code><span>etapas</span></div><div class="file-row"><code>actions.jsonl</code><span>ações e testes</span></div><div class="file-row"><code>state.json</code><span>estado e contadores</span></div></div>
+      </div>
+      <div class="bottom-callout">A execução pode ser reconstruída depois: tarefa, mudanças, saídas dos testes, tentativas e resultado.</div>
+    </section>
+
+    <section class="slide" hidden data-title="Avaliação">
+      <div class="eyebrow">07 / AVALIAÇÃO DO AGENTE</div>
+      <h2>Casos de avaliação<br><em>e testes de aceitação.</em></h2>
+      <div class="cases"><div><b>01</b> Função</div><div><b>02</b> Bug</div><div><b>03</b> API</div><div><b>04</b> Testes</div><div><b>05</b> Validação</div><div><b>06</b> Refatoração</div></div>
+      <div class="evaluation-split"><div class="panel"><div class="panel-label">DURANTE A EXECUÇÃO</div><p>Testes visíveis em <code>project/tests/</code> orientam o agente e validam cada proposta.</p></div><div class="panel accent"><div class="panel-label">APÓS A EXECUÇÃO</div><p><code>grade</code> roda testes de aceitação em <code>checks/</code>, fora da cópia acessível ao agente.</p></div></div>
+      <p class="footnote">Métricas: TaskSuccessRate, FirstAttemptSuccess, AverageIterations e AverageLLMCalls.</p>
+    </section>
+
+    <section class="slide" hidden data-title="Resultados medidos">
+      <div class="eyebrow">08 / RESULTADO OBSERVADO</div>
+      <h2>Resultados medidos<br><em>na execução ensaio-8.</em></h2>
+      <div class="metrics"><div><strong>6/6</strong><span>tarefas corretas</span></div><div><strong>5/6</strong><span>na primeira tentativa</span></div><div><strong>1,17</strong><span>iterações médias</span></div><div><strong>4,17</strong><span>chamadas LLM / caso</span></div></div>
+      <div class="result-line"><span class="success">01 ✓</span><span class="success">02 ✓ <small>2 tentativas</small></span><span class="success">03 ✓</span><span class="success">04 ✓</span><span class="success">05 ✓</span><span class="success">06 ✓</span></div>
+      <p class="source">Fonte: <code>evaluation/results/ensaio-8/report.json</code>. Execução anterior à adoção do sandbox Docker; os resultados atuais precisam ser medidos novamente.</p>
+    </section>
+
+    <section class="slide" hidden data-title="Execução reproduzível">
+      <div class="eyebrow">09 / EXECUÇÃO REPRODUZÍVEL</div>
+      <h2>Procedimento de execução<br><em>e inspeção dos artefatos.</em></h2>
+      <div class="demo-grid"><div class="panel dark"><div class="panel-label">TERMINAL</div><pre><code>uv run minicode-eval run \
+  --case 05_validation \
+  --output evaluation/results/demo
+
+uv run minicode-eval grade \
+  --run evaluation/results/demo</code></pre></div><div class="panel"><div class="panel-label">ARTEFATOS DA EXECUÇÃO</div><ol><li>tarefa e critérios da spec</li><li>plano e arquivo alterado</li><li>testes, reparo eventual e estado</li><li>relatório dos testes externos</li></ol></div></div>
+      <p class="footnote">Cada execução usa uma pasta de saída nova. O histórico registra as tentativas e os resultados observados.</p>
+    </section>
+
+    <section class="slide final-slide" hidden data-title="Conclusão">
+      <div class="eyebrow">10 / LIMITES ATUAIS</div>
+      <h2>Limites reais<br><em>do MiniCode.</em></h2>
+      <div class="limits-grid">
+        <div><b>EDIÇÃO</b><span>Cada proposta substitui o arquivo inteiro; não há edição por trecho.</span></div>
+        <div><b>VERIFICAÇÃO</b><span>Executa apenas <code>pytest -q</code>. Sem testes coletados, termina em <code>UNVERIFIED</code>.</span></div>
+        <div><b>ESPECIFICAÇÃO</b><span>A spec é texto livre; a qualidade dos critérios não é validada automaticamente.</span></div>
+        <div><b>AMBIENTE</b><span>Docker é obrigatório. A imagem padrão contém Python 3.13 e pytest, sem dependências extras do projeto.</span></div>
+      </div>
+      <p class="closing-note">O contexto inicial também é limitado a uma amostra de até 20 arquivos de texto e cerca de 24 mil caracteres.</p>
+      <div class="end-mark">MINICODE<span> / AGENTE DE PROGRAMAÇÃO</span></div>
+    </section>
+  </main>
+  <footer class="chrome"><div class="brand">M<span>C</span><small>MINICODE</small></div><div class="chrome-center"><div id="progress-track"><div id="progress"></div></div><span id="slide-count">01 / 11</span></div><div class="controls"><span class="hint">← → para navegar</span><button id="previous" aria-label="Slide anterior">←</button><button id="next" aria-label="Próximo slide">→</button><span class="timer-label">TEMPO</span><time id="timer">00:00</time></div></footer>
+</body>
+</html>
