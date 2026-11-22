@@ -2,6 +2,7 @@
 
 import logging
 import os
+from collections.abc import Mapping
 from typing import Protocol
 
 import httpx
@@ -86,3 +87,20 @@ class OpenAIChatModel:
         if not api_key:
             raise ValueError("Defina MINICODE_API_KEY no ambiente ou em .env")
         return cls(base_url=base_url, api_key=api_key, model=model)
+
+
+def planning_model_from_environment(
+    environment: Mapping[str, str] | None = None,
+) -> OpenAIChatModel | None:
+    """Carrega um endpoint opcional dedicado à geração de planos."""
+    if environment is None:
+        load_dotenv()
+        environment = os.environ
+    base_url = environment.get("MINICODE_PLAN_BASE_URL")
+    model = environment.get("MINICODE_PLAN_MODEL")
+    if not base_url and not model:
+        return None
+    if not base_url or not model:
+        raise ValueError("Defina MINICODE_PLAN_BASE_URL e MINICODE_PLAN_MODEL juntos")
+    api_key = environment.get("MINICODE_PLAN_API_KEY", "local")
+    return OpenAIChatModel(base_url, api_key, model)

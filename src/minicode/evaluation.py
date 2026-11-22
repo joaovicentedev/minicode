@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from minicode.agent import Agent
-from minicode.llm import LanguageModel, OpenAIChatModel
+from minicode.llm import LanguageModel, OpenAIChatModel, planning_model_from_environment
 from minicode.tools import CommandResult, DockerSandbox, TestSandbox
 
 
@@ -35,6 +35,7 @@ def run_cases(
     case_names: list[str] | None = None,
     workers: int = 4,
     sandbox: TestSandbox | None = None,
+    planning_model: LanguageModel | None = None,
 ) -> dict:
     """Executa os casos em projetos isolados e guarda os resultados iniciais."""
     cases = select_cases(cases_dir, case_names)
@@ -53,7 +54,7 @@ def run_cases(
         }
         agent = Agent(
             model, project, max_attempts=max_attempts, read_only_paths=existing_tests,
-            sandbox=sandbox,
+            sandbox=sandbox, planning_model=planning_model,
         )
         error = None
         try:
@@ -165,6 +166,7 @@ def main() -> None:
                 args.max_attempts,
                 args.case,
                 args.workers,
+                planning_model=planning_model_from_environment(),
             )
             print(f"Execução: {output / 'run.json'}")
             print(f"Avalie com: uv run minicode-eval grade --run {output}")

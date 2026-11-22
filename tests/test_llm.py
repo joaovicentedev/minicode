@@ -41,3 +41,24 @@ def test_openai_adapter_sends_pydantic_schema_for_structured_turn():
     schema = requests[0]["response_format"]["json_schema"]["schema"]
     assert schema == FileChanges.model_json_schema()
     http_client.close()
+
+
+def test_optional_planning_model_environment():
+    from minicode.llm import planning_model_from_environment
+
+    assert planning_model_from_environment({}) is None
+    try:
+        planning_model_from_environment({"MINICODE_PLAN_BASE_URL": "http://localhost:8000/v1"})
+    except ValueError as error:
+        assert "MINICODE_PLAN_MODEL" in str(error)
+    else:
+        assert False
+    model = planning_model_from_environment(
+        {
+            "MINICODE_PLAN_BASE_URL": "http://localhost:8000/v1",
+            "MINICODE_PLAN_MODEL": "qwen",
+            "MINICODE_PLAN_API_KEY": "key",
+        }
+    )
+    assert model.model == "qwen"
+    assert str(model.client.base_url) == "http://localhost:8000/v1/"

@@ -222,3 +222,10 @@ __marimo__/
 /projects
 .minicode/
 /evaluation/results/
+
+# Artefatos de treino locais
+/notebooks/checkpoints/
+/notebooks/outputs/
+
+# Metadados do macOS
+.DS_Store

@@ -363,3 +363,17 @@ def test_agent_fails_when_acceptance_review_rejects_last_attempt(tmp_path):
 
     assert agent.state is State.FAILED
     assert "Critério não coberto" in result
+
+
+def test_agent_uses_separate_model_only_for_planning(tmp_path):
+    primary = SequenceModel([
+        "spec",
+        json.dumps({"files": [{"path": "test_ok.py", "content": "def test_ok(): assert True\n"}]}),
+        '{"accepted": true, "reason": "Testes passaram"}',
+    ])
+    planner = SequenceModel(["1. Criar teste\n2. Executar pytest -q"])
+    result = Agent(primary, tmp_path, planning_model=planner).run("Crie teste")
+    assert "passed" in result
+    assert len(planner.prompts) == 1
+    assert "etapa PLAN" in planner.prompts[0]
+    assert len(primary.prompts) == 3

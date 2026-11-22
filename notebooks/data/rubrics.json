@@ -1,0 +1,560 @@
+{
+  "Corrija arredondamento de total em invoice.py": {
+    "task_alignment": [
+      [
+        "arredondamento",
+        "arredondar"
+      ],
+      [
+        "total"
+      ]
+    ],
+    "spec_coverage": [
+      [
+        "casas",
+        "decimais"
+      ],
+      [
+        "vazia",
+        "vazio"
+      ]
+    ],
+    "context_consistency": [
+      [
+        "invoice.py"
+      ]
+    ]
+  },
+  "Implemente contagem por categoria em inventory.py": {
+    "task_alignment": [
+      [
+        "categoria"
+      ],
+      [
+        "agregação",
+        "contar",
+        "contagem"
+      ]
+    ],
+    "spec_coverage": [
+      [
+        "repetidas",
+        "repetidos"
+      ],
+      [
+        "vazia",
+        "vazio"
+      ]
+    ],
+    "context_consistency": [
+      [
+        "inventory.py"
+      ]
+    ]
+  },
+  "Adicione teste para divisão por zero em arithmetic.py": {
+    "task_alignment": [
+      [
+        "divisão",
+        "dividir"
+      ],
+      [
+        "zero"
+      ]
+    ],
+    "spec_coverage": [
+      [
+        "teste",
+        "testes",
+        "testar"
+      ],
+      [
+        "exceção",
+        "ZeroDivisionError"
+      ]
+    ],
+    "context_consistency": [
+      [
+        "arithmetic.py"
+      ]
+    ]
+  },
+  "Corrija ordenação de eventos em events.py": {
+    "task_alignment": [
+      [
+        "ordenação",
+        "ordenar"
+      ],
+      [
+        "data"
+      ]
+    ],
+    "spec_coverage": [
+      [
+        "fora de ordem",
+        "desordenados",
+        "desordenadas"
+      ],
+      [
+        "vazia",
+        "vazio"
+      ]
+    ],
+    "context_consistency": [
+      [
+        "events.py"
+      ]
+    ]
+  },
+  "Implemente validação de senha em auth.py": {
+    "task_alignment": [
+      [
+        "validação",
+        "validar"
+      ],
+      [
+        "comprimento",
+        "tamanho"
+      ]
+    ],
+    "spec_coverage": [
+      [
+        "abaixo",
+        "menor"
+      ],
+      [
+        "limite",
+        "mínimo"
+      ],
+      [
+        "acima",
+        "maior"
+      ]
+    ],
+    "context_consistency": [
+      [
+        "auth.py"
+      ]
+    ]
+  },
+  "Adicione paginação em records.py": {
+    "task_alignment": [
+      [
+        "página",
+        "paginação"
+      ],
+      [
+        "recorte",
+        "fatiamento",
+        "índices",
+        "offset"
+      ]
+    ],
+    "spec_coverage": [
+      [
+        "primeira"
+      ],
+      [
+        "última"
+      ],
+      [
+        "vazia",
+        "vazio"
+      ]
+    ],
+    "context_consistency": [
+      [
+        "records.py"
+      ]
+    ]
+  },
+  "Adicione rejeição de estoque insuficiente em stock.py": {
+    "task_alignment": [
+      [
+        "estoque"
+      ],
+      [
+        "validar",
+        "validação"
+      ]
+    ],
+    "spec_coverage": [
+      [
+        "insuficiente"
+      ],
+      [
+        "saldo"
+      ],
+      [
+        "erro"
+      ]
+    ],
+    "context_consistency": [
+      [
+        "stock.py"
+      ]
+    ]
+  },
+  "Corrija cálculo de ano bissexto em calendar_rules.py": {
+    "task_alignment": [
+      [
+        "bissexto"
+      ],
+      [
+        "400"
+      ],
+      [
+        "100"
+      ]
+    ],
+    "spec_coverage": [
+      [
+        "2000"
+      ],
+      [
+        "1900"
+      ],
+      [
+        "2024"
+      ],
+      [
+        "2023"
+      ]
+    ],
+    "context_consistency": [
+      [
+        "calendar_rules.py"
+      ]
+    ]
+  },
+  "Crie testes de isolamento para cestas em baskets.py": {
+    "task_alignment": [
+      [
+        "cestas",
+        "cesta"
+      ],
+      [
+        "isolamento"
+      ]
+    ],
+    "spec_coverage": [
+      [
+        "duas"
+      ],
+      [
+        "segunda"
+      ],
+      [
+        "vazia"
+      ]
+    ],
+    "context_consistency": [
+      [
+        "baskets.py"
+      ]
+    ]
+  },
+  "Refatore busca de permissões em permissions.py": {
+    "task_alignment": [
+      [
+        "permissões"
+      ],
+      [
+        "simplificar"
+      ]
+    ],
+    "spec_coverage": [
+      [
+        "booleano"
+      ],
+      [
+        "parâmetros"
+      ],
+      [
+        "desconhecido"
+      ]
+    ],
+    "context_consistency": [
+      [
+        "permissions.py"
+      ]
+    ]
+  },
+  "Adicione validação de lote atômico em batch_update.py": {
+    "task_alignment": [
+      [
+        "lote"
+      ],
+      [
+        "validar"
+      ]
+    ],
+    "spec_coverage": [
+      [
+        "antes"
+      ],
+      [
+        "inválido"
+      ],
+      [
+        "parciais"
+      ]
+    ],
+    "context_consistency": [
+      [
+        "batch_update.py"
+      ]
+    ]
+  },
+  "Corrija preservação de linhas finais em log_tail.py": {
+    "task_alignment": [
+      [
+        "últimas"
+      ],
+      [
+        "linhas"
+      ]
+    ],
+    "spec_coverage": [
+      [
+        "zero"
+      ],
+      [
+        "negativo"
+      ],
+      [
+        "ordem"
+      ]
+    ],
+    "context_consistency": [
+      [
+        "log_tail.py"
+      ]
+    ]
+  },
+  "Implemente seleção de idioma em locale_choice.py": {
+    "task_alignment": [
+      [
+        "idioma"
+      ],
+      [
+        "primeiro"
+      ]
+    ],
+    "spec_coverage": [
+      [
+        "ordem"
+      ],
+      [
+        "fallback"
+      ],
+      [
+        "nenhuma"
+      ]
+    ],
+    "context_consistency": [
+      [
+        "locale_choice.py"
+      ]
+    ]
+  },
+  "Corrija união de intervalos adjacentes em bookings.py": {
+    "task_alignment": [
+      [
+        "intervalos"
+      ],
+      [
+        "unir"
+      ]
+    ],
+    "spec_coverage": [
+      [
+        "adjacentes",
+        "adjacência"
+      ],
+      [
+        "sobrepostos",
+        "sobreposição"
+      ],
+      [
+        "original"
+      ],
+      [
+        "vazia"
+      ]
+    ],
+    "context_consistency": [
+      [
+        "bookings.py"
+      ]
+    ]
+  },
+  "Adicione teste de idempotência em subscriptions.py": {
+    "task_alignment": [
+      [
+        "idempotência"
+      ],
+      [
+        "cancelamento",
+        "cancelar"
+      ]
+    ],
+    "spec_coverage": [
+      [
+        "duas"
+      ],
+      [
+        "inativo"
+      ],
+      [
+        "exceção"
+      ]
+    ],
+    "context_consistency": [
+      [
+        "subscriptions.py"
+      ]
+    ]
+  },
+  "Implemente quantil pelo vizinho mais próximo em quantiles.py": {
+    "task_alignment": [
+      [
+        "quantil"
+      ],
+      [
+        "ceil"
+      ]
+    ],
+    "spec_coverage": [
+      [
+        "cópia"
+      ],
+      [
+        "inválido"
+      ],
+      [
+        "vazia"
+      ]
+    ],
+    "context_consistency": [
+      [
+        "quantiles.py"
+      ]
+    ]
+  },
+  "Refatore despacho de operações em dispatch.py": {
+    "task_alignment": [
+      [
+        "tabela"
+      ],
+      [
+        "funções"
+      ]
+    ],
+    "spec_coverage": [
+      [
+        "soma"
+      ],
+      [
+        "produto"
+      ],
+      [
+        "KeyError"
+      ],
+      [
+        "desconhecida"
+      ]
+    ],
+    "context_consistency": [
+      [
+        "dispatch.py"
+      ]
+    ]
+  },
+  "Corrija agrupamento de sessões em sessions.py": {
+    "task_alignment": [
+      [
+        "sessão",
+        "sessões"
+      ],
+      [
+        "diferença"
+      ]
+    ],
+    "spec_coverage": [
+      [
+        "igual",
+        "igualdade"
+      ],
+      [
+        "maior"
+      ],
+      [
+        "vazia"
+      ]
+    ],
+    "context_consistency": [
+      [
+        "sessions.py"
+      ]
+    ]
+  },
+  "Implemente aplicação de movimentos em ledger.py": {
+    "task_alignment": [
+      [
+        "créditos"
+      ],
+      [
+        "débitos"
+      ],
+      [
+        "saldo"
+      ]
+    ],
+    "spec_coverage": [
+      [
+        "desconhecido"
+      ],
+      [
+        "ValueError"
+      ],
+      [
+        "sem modificação"
+      ]
+    ],
+    "context_consistency": [
+      [
+        "ledger.py"
+      ]
+    ]
+  },
+  "Adicione desempate por nome em ranking.py": {
+    "task_alignment": [
+      [
+        "pontuação"
+      ],
+      [
+        "desempate"
+      ]
+    ],
+    "spec_coverage": [
+      [
+        "decrescente"
+      ],
+      [
+        "nome"
+      ],
+      [
+        "crescente"
+      ],
+      [
+        "entrada"
+      ]
+    ],
+    "context_consistency": [
+      [
+        "ranking.py"
+      ]
+    ]
+  }
+}

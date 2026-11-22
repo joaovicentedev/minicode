@@ -75,6 +75,24 @@ ALLOWED_TRANSITIONS = {
 }
 
 
+def build_plan_prompt(task: str, spec: str, context: str) -> str:
+    """Monta a entrada comum ao treino e ao agente para a etapa PLAN."""
+    return (
+            "Você está na etapa PLAN. Crie uma única lista numerada e enxuta de ações "
+            "para satisfazer a tarefa: localizar os arquivos relevantes, implementar, "
+            "criar ou ajustar testes quando necessário e verificar com pytest -q. "
+            "Considere os testes existentes antes de propor novos arquivos. Cite caminhos "
+            "somente quando forem conhecidos pelo contexto ou necessários ao plano. "
+            "A tarefa original prevalece se a especificação contiver erro ou contradição. "
+            "Não repita o objetivo, os critérios de aceitação, as contas ou os exemplos da "
+            "spec. Não duplique a lista em outra seção, não indique outro comando de "
+            "teste e não inclua código pronto. Descreva apenas os passos futuros; não "
+            "afirme que já executou algum deles.\n"
+            f"Tarefa original:\n{task}\n\nEspecificação:\n{spec}\n\n"
+            f"Contexto do projeto:\n{context}"
+    )
+
+
 class Agent:
     """Executa uma tarefa em projeto com número limitado de reparos."""
 
@@ -85,10 +103,12 @@ class Agent:
         max_attempts: int = 2,
         read_only_paths: set[str] | None = None,
         sandbox: TestSandbox | None = None,
+        planning_model: LanguageModel | None = None,
     ):
         if max_attempts < 1:
             raise ValueError("max_attempts deve ser pelo menos 1")
         self.model = model
+        self.planning_model = planning_model or model
         self.tools = ProjectTools(project, read_only_paths=read_only_paths, sandbox=sandbox)
         self.max_attempts = max_attempts
         self.state = State.RECEIVED
@@ -144,18 +164,8 @@ class Agent:
         logger.debug("Especificação produzida:\n%s", spec)
         plan = self._complete_turn(
             "plano",
-            "Você está na etapa PLAN. Crie uma única lista numerada e enxuta de ações "
-            "para satisfazer a tarefa: localizar os arquivos relevantes, implementar, "
-            "criar ou ajustar testes quando necessário e verificar com pytest -q. "
-            "Considere os testes existentes antes de propor novos arquivos. Cite caminhos "
-            "somente quando forem conhecidos pelo contexto ou necessários ao plano. "
-            "A tarefa original prevalece se a especificação contiver erro ou contradição. "
-            "Não repita o objetivo, os critérios de aceitação, as contas ou os exemplos da "
-            "spec. Não duplique a lista em outra seção, não indique outro comando de "
-            "teste e não inclua código pronto. Descreva apenas os passos futuros; não "
-            "afirme que já executou algum deles.\n"
-            f"Tarefa original:\n{task}\n\nEspecificação:\n{spec}\n\n"
-            f"Contexto do projeto:\n{context}",
+            build_plan_prompt(task, spec, context),
+            model=self.planning_model,
         )
         self.trace.document("plan", plan)
         self._transition(State.PLANNED)
@@ -295,6 +305,7 @@ class Agent:
         stage: str,
         prompt: str,
         response_model: type[BaseModel] | None = None,
+        model: LanguageModel | None = None,
     ) -> str:
         """Mostra a resposta do modelo sem despejar o prompt no log."""
         self._turn += 1
@@ -302,7 +313,7 @@ class Agent:
         started = perf_counter()
         logger.info("Turno LLM %d (%s): enviando %d caracteres", self._turn, stage, len(prompt))
         try:
-            response = self.model.complete(prompt, response_model=response_model)
+            response = (model or self.model).complete(prompt, response_model=response_model)
         except Exception:
             logger.exception("Turno LLM %d (%s) falhou", self._turn, stage)
             raise

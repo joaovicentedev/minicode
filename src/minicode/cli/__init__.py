@@ -5,7 +5,7 @@ import logging
 from pathlib import Path
 
 from minicode.agent import Agent, State
-from minicode.llm import OpenAIChatModel
+from minicode.llm import OpenAIChatModel, planning_model_from_environment
 
 
 def main() -> None:
@@ -22,7 +22,10 @@ def main() -> None:
     )
     task = args.task or input("Tarefa> ").strip()
     try:
-        agent = Agent(OpenAIChatModel.from_environment(), args.project, args.max_attempts)
+        agent = Agent(
+            OpenAIChatModel.from_environment(), args.project, args.max_attempts,
+            planning_model=planning_model_from_environment(),
+        )
         print(agent.run(task))
         print(f"Estado final: {agent.state.value}")
         if agent.state is not State.DONE:
