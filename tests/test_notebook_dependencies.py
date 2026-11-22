@@ -28,6 +28,7 @@ def test_kernel_installation_preserves_runtime_and_checks_imports(triton_availab
     # TemporaryDirectory grava as restrições em disco; o executor externo é injetado.
     temporary = Mock(wraps=tempfile.TemporaryDirectory)
     namespace = {
+        "torch": SimpleNamespace(cuda=SimpleNamespace(is_available=lambda: True)),
         "os": os, "subprocess": SimpleNamespace(run=runner),
         "sys": SimpleNamespace(modules={}, executable="python-runtime"),
         "tempfile": SimpleNamespace(TemporaryDirectory=temporary),
@@ -64,6 +65,7 @@ def test_kernel_setup_rejects_already_imported_transformers():
     tree.body = [node for node in tree.body if not isinstance(node, ast.Import | ast.ImportFrom)]
     runner = Mock()
     namespace = {
+        "torch": SimpleNamespace(cuda=SimpleNamespace(is_available=lambda: True)),
         "sys": SimpleNamespace(modules={"transformers": object()}),
         "subprocess": SimpleNamespace(run=runner),
     }
@@ -80,6 +82,7 @@ def test_kernel_installation_failure_stops_before_model_setup():
     tree.body = [node for node in tree.body if not isinstance(node, ast.Import | ast.ImportFrom)]
     runner = Mock(side_effect=[None, subprocess.CalledProcessError(1, "pip")])
     namespace = {
+        "torch": SimpleNamespace(cuda=SimpleNamespace(is_available=lambda: True)),
         "os": os, "subprocess": SimpleNamespace(run=runner),
         "sys": SimpleNamespace(modules={}, executable="python-runtime"),
         "tempfile": tempfile, "Path": Path, "version": Mock(return_value="1.0"),
@@ -88,3 +91,42 @@ def test_kernel_installation_failure_stops_before_model_setup():
     with pytest.raises(subprocess.CalledProcessError):
         exec(compile(tree, "dependency_cell", "exec"), namespace)
     assert runner.call_count == 2
+
+
+def test_kernel_setup_rejects_missing_cuda_before_installation():
+    notebook = json.loads(
+        (Path(__file__).resolve().parents[1] / "notebooks/train.ipynb").read_text()
+    )
+    tree = ast.parse("".join(notebook["cells"][1]["source"]))
+    tree.body = [node for node in tree.body if not isinstance(node, ast.Import | ast.ImportFrom)]
+    runner = Mock()
+    namespace = {
+        "torch": SimpleNamespace(cuda=SimpleNamespace(is_available=lambda: False)),
+        "subprocess": SimpleNamespace(run=runner),
+    }
+    with pytest.raises(RuntimeError, match="GPU com CUDA indisponível"):
+        exec(compile(tree, "dependency_cell", "exec"), namespace)
+    runner.assert_not_called()
+
+
+@pytest.mark.parametrize("directory", [".", "notebooks"])
+def test_repository_setup_uses_existing_local_checkout(tmp_path, directory):
+    (tmp_path / "pyproject.toml").write_text("[project]\n")
+    (tmp_path / "notebooks").mkdir()
+    notebook = json.loads(
+        (Path(__file__).resolve().parents[1] / "notebooks/train.ipynb").read_text()
+    )
+    tree = ast.parse("".join(notebook["cells"][2]["source"]))
+    start = next(
+        i for i, node in enumerate(tree.body)
+        if isinstance(node, ast.Assign)
+        and any(isinstance(target, ast.Name) and target.id == "REPO" for target in node.targets)
+    )
+    tree.body = tree.body[start:start + 3]
+    path = Mock(side_effect=Path)
+    path.cwd.return_value = tmp_path / directory
+    runner = Mock()
+    namespace = {"Path": path, "subprocess": SimpleNamespace(run=runner)}
+    exec(compile(tree, "repository_cell", "exec"), namespace)
+    assert namespace["REPO"] == tmp_path
+    runner.assert_not_called()

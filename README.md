@@ -143,4 +143,27 @@ Esse alvo executa `uv run pytest` e `uv run ruff check .`. Também é possível 
 
 O experimento em [notebooks/train.ipynb](notebooks/train.ipynb) especializa apenas a geração de planos. A hipótese é que LoRA melhora a proporção de planos que seguem os requisitos estruturais do MiniCode. O notebook importa o código público da repo no Colab, carrega 80 exemplos de treino, 10 de validação e 10 de teste, mede o modelo base antes do treino, aplica QLoRA por 10 épocas, mantém em disco apenas o adaptador com menor loss de validação, restaura esse checkpoint e mede o mesmo conjunto de teste após o treino. Os dados em [notebooks/data](notebooks/data) combinam os 12 exemplos iniciais com 68 exemplos sintéticos elaborados com apoio de IA e verificados programaticamente quanto a formato, unicidade e estrutura dos planos. A separação é fixa por tarefa; validação e teste foram ampliados com sete exemplos novos cada, preservando os casos anteriores. Esses 14 exemplos também foram elaborados com apoio de IA e têm rubricas específicas. Consulte a [documentação dos dados e da avaliação](notebooks/data/README.md) para metodologia e limitações. A avaliação registra atendimento estrutural agregado, evidências lexicais de adequação à tarefa, cobertura de critérios e referência ao arquivo correto, além de exportar respostas para revisão manual. Essas evidências não comprovam correção semântica. Os resultados devem ser tratados como exploratórios.
 
-A integração usa a porta `LanguageModel` existente. Se `MINICODE_PLAN_BASE_URL` e `MINICODE_PLAN_MODEL` estiverem definidos, somente o turno de planejamento usa esse endpoint. `MINICODE_PLAN_API_KEY` é opcional para servidores locais. Sem essas variáveis, todos os turnos usam o endpoint padrão. Para a avaliação end-to-end, rode `minicode-eval run` e `grade` com o mesmo conjunto de casos para modelo base e adaptado, em diretórios de saída distintos. Compare `task_success_rate` dos relatórios. Como ablação, repita sem as variáveis de planejamento e registre os três resultados. O treino no Colab e a avaliação end-to-end ainda precisam ser executados; nenhuma métrica experimental foi inventada.
+A integração usa a porta `LanguageModel` existente. Se `MINICODE_PLAN_BASE_URL` e `MINICODE_PLAN_MODEL` estiverem definidos, somente o turno de planejamento usa esse endpoint. `MINICODE_PLAN_API_KEY` é opcional para servidores locais. Sem essas variáveis, todos os turnos usam o endpoint padrão. Para a avaliação end-to-end, rode `minicode-eval run` e `grade` com o mesmo conjunto de casos para modelo base e adaptado, em diretórios de saída distintos. Compare `task_success_rate` dos relatórios. Como ablação, repita sem as variáveis de planejamento e registre os três resultados. O treinamento local foi concluído em uma RTX 4090; a avaliação end-to-end ainda precisa ser executada. Consulte as [instruções de transferência e os resultados locais](docs/mac-model.md).
+
+
+### Executar o treinamento local
+
+O ambiente local usa Python 3.12 e PyTorch 2.10 com CUDA 12.8. Com as dependências já instaladas em `.venv`, execute na raiz do projeto:
+
+```bash
+make train
+```
+
+O comando executa todas as células e salva o notebook com saídas em `notebooks/outputs/train.executed.ipynb`. O adaptador selecionado, o histórico de perdas, as métricas e as respostas ficam em `notebooks/outputs/minicode-plan-lora/`. A execução inicia as 10 épocas e pode demorar. A preparação do ambiente não executa o treinamento.
+
+Para abrir em um editor, selecione o interpretador `.venv/bin/python` como kernel de `notebooks/train.ipynb`. O notebook reconhece o checkout local quando aberto na raiz ou na pasta `notebooks`, sem trocar sua branch. Os downloads de `make train` ficam em `.cache/` no disco do projeto.
+
+Para recriar o ambiente em Linux x86_64 com uma GPU NVIDIA e driver compatível:
+
+```bash
+UV_CACHE_DIR="$PWD/.cache/uv" UV_PYTHON_INSTALL_DIR="$PWD/.cache/python" uv sync --python 3.12
+UV_CACHE_DIR="$PWD/.cache/uv" uv pip install --python .venv/bin/python -r notebooks/requirements.txt
+make train
+```
+
+O arquivo de dependências fixa a revisão de Transformers e usa o wheel oficial de `causal-conv1d` para Python 3.12, PyTorch 2.10 e CUDA 12, dispensando `nvcc` nessa configuração. Para outras plataformas, ajuste o wheel ao ambiente ou instale o toolkit CUDA para compilar. `uv sync` instala apenas as dependências da aplicação e remove os pacotes extras do notebook; depois dele, reinstale `notebooks/requirements.txt`. Para usar os extras já instalados, prefira `.venv/bin/python` ou `uv run --no-sync`.

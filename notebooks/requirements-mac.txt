@@ -1,0 +1,6 @@
+# Inferência sem CUDA; instalar em ambiente separado com Python 3.12.
+torch==2.10.0
+torchvision==0.25.0
+transformers @ git+https://github.com/huggingface/transformers.git@be48e7a0b63d2ff22ce1ebccbccbd0374c1592ef
+accelerate==1.16.0
+peft==0.22.0

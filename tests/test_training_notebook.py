@@ -42,13 +42,14 @@ def test_training_saves_only_improvements_and_restores_best(
     loader = Mock(return_value=saved_weights)
     restore = Mock()
     namespace = {
-        "model": model, "torch": torch, "Path": Mock(return_value=tmp_path),
+        "model": model, "torch": torch, "REPO": tmp_path,
         "LoraConfig": Mock(), "get_peft_model": Mock(return_value=model),
         "processor": Mock(), "encoded_train": ["train"],
         "encoded_validation": ["validation"], "batch": Mock(return_value={}),
         "json": json, "load_peft_weights": loader,
         "set_peft_model_state_dict": restore,
     }
+    tmp_path = tmp_path / "notebooks/outputs/minicode-plan-lora"
     if expected_epoch is None:
         with pytest.raises(RuntimeError, match="Loss não finita"):
             exec(compile(source, "training_cell", "exec"), namespace)
