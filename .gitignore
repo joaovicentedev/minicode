@@ -153,6 +153,7 @@ activemq-data/
 .env
 .envrc
 .venv
+.venv-inference/
 env/
 venv/
 ENV/
@@ -226,6 +227,16 @@ __marimo__/
 # Artefatos de treino locais
 /notebooks/checkpoints/
 /notebooks/outputs/
+
+# Pesos de modelos e pacotes locais com pesos
+/models/
+*.safetensors
+*.gguf
+*.pt
+*.pth
+pytorch_model*.bin
+adapter_model*.bin
+/notebooks/minicode-adapter-metricas.zip
 
 # Metadados do macOS
 .DS_Store

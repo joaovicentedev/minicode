@@ -1,0 +1,11 @@
+{
+  "task": "Preciso validar idades em validation.py com uma função valid_age(age). Ela deve aceitar números inteiros de 0 a 120, incluindo os limites. True e False não são idades válidas. Para qualquer valor inválido, lance ValueError.",
+  "status": "FAILED",
+  "attempts": 2,
+  "llm_calls": 4,
+  "test_runs": 1,
+  "changed_files": [
+    "validation.py"
+  ],
+  "result": "Falha após 2 tentativa(s).\n.FF                                                                      [100%]\n=================================== FAILURES ===================================\n____________________ test_valid_age_rejects_booleans[True] _____________________\n\nvalue = True\n\n    @pytest.mark.parametrize(\"value\", [True, False])\n    def test_valid_age_rejects_booleans(value):\n>       with pytest.raises(ValueError):\n             ^^^^^^^^^^^^^^^^^^^^^^^^^\nE       Failed: DID NOT RAISE <class 'ValueError'>\n\ntests/test_validation.py:13: Failed\n____________________ test_valid_age_rejects_booleans[False] ____________________\n\nvalue = False\n\n    @pytest.mark.parametrize(\"value\", [True, False])\n    def test_valid_age_rejects_booleans(value):\n>       with pytest.raises(ValueError):\n             ^^^^^^^^^^^^^^^^^^^^^^^^^\nE       Failed: DID NOT RAISE <class 'ValueError'>\n\ntests/test_validation.py:13: Failed\n=========================== short test summary info ============================\nFAILED tests/test_validation.py::test_valid_age_rejects_booleans[True] - Fail...\nFAILED tests/test_validation.py::test_valid_age_rejects_booleans[False] - Fai...\n2 failed, 1 passed in 0.01s\n\n"
+}

@@ -1,0 +1,11 @@
+{
+  "task": "Implemente sum_even(numbers) em calculator.py: some apenas os inteiros pares da lista. Preserve a assinatura e os testes.",
+  "status": "DONE",
+  "attempts": 2,
+  "llm_calls": 5,
+  "test_runs": 1,
+  "changed_files": [
+    "calculator.py"
+  ],
+  "result": ".                                                                        [100%]\n1 passed in 0.00s\n"
+}

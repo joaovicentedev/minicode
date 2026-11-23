@@ -1,0 +1,55 @@
+{
+  "base": {
+    "numbered": 0.0,
+    "mentions_tests": 0.8,
+    "mentions_pytest": 0.3,
+    "no_code_block": 0.4,
+    "no_completed_claim": 1.0,
+    "structural_pass": 0.0,
+    "task_alignment": 0.2,
+    "spec_coverage": 0.2,
+    "context_consistency": 0.9,
+    "quality_pass": 0.0,
+    "overall_pass": 0.0
+  },
+  "lora": {
+    "numbered": 1.0,
+    "mentions_tests": 1.0,
+    "mentions_pytest": 1.0,
+    "no_code_block": 1.0,
+    "no_completed_claim": 1.0,
+    "structural_pass": 1.0,
+    "task_alignment": 0.6,
+    "spec_coverage": 0.4,
+    "context_consistency": 1.0,
+    "quality_pass": 0.3,
+    "overall_pass": 0.3
+  },
+  "train_loss": [
+    0.41201493520929944,
+    0.2279621398425661,
+    0.13655495923012495,
+    0.08994839299994055,
+    0.060852991093997846,
+    0.036210378358373416,
+    0.023153302019636612,
+    0.01337302395622828,
+    0.00958061074197758,
+    0.009099725278792903
+  ],
+  "validation_loss": [
+    2.049657130241394,
+    1.6557592511177064,
+    1.6207079648971559,
+    1.6528774857521058,
+    1.6320294260978698,
+    1.7083716332912444,
+    1.671143364906311,
+    1.7462468445301056,
+    1.8359385490417481,
+    1.8883780360221862
+  ],
+  "best_epoch": 3,
+  "best_validation_loss": 1.6207079648971559,
+  "epochs": 10
+}

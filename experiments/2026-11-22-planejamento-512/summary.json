@@ -1,0 +1,188 @@
+{
+  "padrao": {
+    "task_success_rate": 0.8333333333333334,
+    "first_attempt_success": 0.5,
+    "average_iterations": 1.5,
+    "average_llm_calls": 4.333333333333333,
+    "plan_scores": [
+      {
+        "case": "01_function",
+        "numbered": true,
+        "mentions_tests": true,
+        "mentions_pytest": true,
+        "no_code_block": true,
+        "no_completed_claim": true,
+        "structural_pass": true
+      },
+      {
+        "case": "02_bug",
+        "numbered": true,
+        "mentions_tests": true,
+        "mentions_pytest": true,
+        "no_code_block": true,
+        "no_completed_claim": true,
+        "structural_pass": true
+      },
+      {
+        "case": "03_api",
+        "numbered": true,
+        "mentions_tests": true,
+        "mentions_pytest": true,
+        "no_code_block": true,
+        "no_completed_claim": true,
+        "structural_pass": true
+      },
+      {
+        "case": "04_tests",
+        "numbered": true,
+        "mentions_tests": true,
+        "mentions_pytest": true,
+        "no_code_block": true,
+        "no_completed_claim": true,
+        "structural_pass": true
+      },
+      {
+        "case": "05_validation",
+        "numbered": true,
+        "mentions_tests": true,
+        "mentions_pytest": true,
+        "no_code_block": true,
+        "no_completed_claim": true,
+        "structural_pass": true
+      },
+      {
+        "case": "06_refactor",
+        "numbered": true,
+        "mentions_tests": true,
+        "mentions_pytest": true,
+        "no_code_block": true,
+        "no_completed_claim": true,
+        "structural_pass": true
+      }
+    ]
+  },
+  "base": {
+    "task_success_rate": 1.0,
+    "first_attempt_success": 0.5,
+    "average_iterations": 1.5,
+    "average_llm_calls": 4.5,
+    "plan_scores": [
+      {
+        "case": "01_function",
+        "numbered": false,
+        "mentions_tests": true,
+        "mentions_pytest": true,
+        "no_code_block": true,
+        "no_completed_claim": true,
+        "structural_pass": false
+      },
+      {
+        "case": "02_bug",
+        "numbered": false,
+        "mentions_tests": true,
+        "mentions_pytest": false,
+        "no_code_block": true,
+        "no_completed_claim": true,
+        "structural_pass": false
+      },
+      {
+        "case": "03_api",
+        "numbered": false,
+        "mentions_tests": true,
+        "mentions_pytest": false,
+        "no_code_block": true,
+        "no_completed_claim": true,
+        "structural_pass": false
+      },
+      {
+        "case": "04_tests",
+        "numbered": false,
+        "mentions_tests": true,
+        "mentions_pytest": true,
+        "no_code_block": true,
+        "no_completed_claim": true,
+        "structural_pass": false
+      },
+      {
+        "case": "05_validation",
+        "numbered": false,
+        "mentions_tests": true,
+        "mentions_pytest": false,
+        "no_code_block": true,
+        "no_completed_claim": true,
+        "structural_pass": false
+      },
+      {
+        "case": "06_refactor",
+        "numbered": false,
+        "mentions_tests": true,
+        "mentions_pytest": false,
+        "no_code_block": true,
+        "no_completed_claim": true,
+        "structural_pass": false
+      }
+    ]
+  },
+  "lora": {
+    "task_success_rate": 0.8333333333333334,
+    "first_attempt_success": 0.5,
+    "average_iterations": 1.5,
+    "average_llm_calls": 4.5,
+    "plan_scores": [
+      {
+        "case": "01_function",
+        "numbered": true,
+        "mentions_tests": true,
+        "mentions_pytest": true,
+        "no_code_block": true,
+        "no_completed_claim": true,
+        "structural_pass": true
+      },
+      {
+        "case": "02_bug",
+        "numbered": true,
+        "mentions_tests": true,
+        "mentions_pytest": true,
+        "no_code_block": true,
+        "no_completed_claim": true,
+        "structural_pass": true
+      },
+      {
+        "case": "03_api",
+        "numbered": true,
+        "mentions_tests": true,
+        "mentions_pytest": true,
+        "no_code_block": true,
+        "no_completed_claim": true,
+        "structural_pass": true
+      },
+      {
+        "case": "04_tests",
+        "numbered": true,
+        "mentions_tests": true,
+        "mentions_pytest": true,
+        "no_code_block": true,
+        "no_completed_claim": true,
+        "structural_pass": true
+      },
+      {
+        "case": "05_validation",
+        "numbered": true,
+        "mentions_tests": true,
+        "mentions_pytest": true,
+        "no_code_block": true,
+        "no_completed_claim": true,
+        "structural_pass": true
+      },
+      {
+        "case": "06_refactor",
+        "numbered": true,
+        "mentions_tests": true,
+        "mentions_pytest": true,
+        "no_code_block": true,
+        "no_completed_claim": true,
+        "structural_pass": true
+      }
+    ]
+  }
+}

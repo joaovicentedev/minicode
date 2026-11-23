@@ -1,0 +1,58 @@
+{
+  "cases": [
+    {
+      "case": "01_function",
+      "category": "implementação de função",
+      "agent_state": "DONE",
+      "iterations": 1,
+      "llm_calls": 4,
+      "error": null,
+      "trace": "/Users/joaovicentedev/Projects/minicode/experiments/2026-11-22-planejamento-512/padrao/01_function/project/.minicode/runs/20261122T213033Z-90756ff1"
+    },
+    {
+      "case": "02_bug",
+      "category": "correção de bug",
+      "agent_state": "DONE",
+      "iterations": 2,
+      "llm_calls": 5,
+      "error": null,
+      "trace": "/Users/joaovicentedev/Projects/minicode/experiments/2026-11-22-planejamento-512/padrao/02_bug/project/.minicode/runs/20261122T213033Z-6f3e0338"
+    },
+    {
+      "case": "03_api",
+      "category": "modificação de API",
+      "agent_state": "DONE",
+      "iterations": 2,
+      "llm_calls": 5,
+      "error": null,
+      "trace": "/Users/joaovicentedev/Projects/minicode/experiments/2026-11-22-planejamento-512/padrao/03_api/project/.minicode/runs/20261122T213033Z-7dbc001d"
+    },
+    {
+      "case": "04_tests",
+      "category": "criação de testes",
+      "agent_state": "DONE",
+      "iterations": 1,
+      "llm_calls": 4,
+      "error": null,
+      "trace": "/Users/joaovicentedev/Projects/minicode/experiments/2026-11-22-planejamento-512/padrao/04_tests/project/.minicode/runs/20261122T213033Z-32747fac"
+    },
+    {
+      "case": "05_validation",
+      "category": "validação de dados",
+      "agent_state": "FAILED",
+      "iterations": 2,
+      "llm_calls": 4,
+      "error": null,
+      "trace": "/Users/joaovicentedev/Projects/minicode/experiments/2026-11-22-planejamento-512/padrao/05_validation/project/.minicode/runs/20261122T213120Z-9d80cc83"
+    },
+    {
+      "case": "06_refactor",
+      "category": "pequena refatoração",
+      "agent_state": "DONE",
+      "iterations": 1,
+      "llm_calls": 4,
+      "error": null,
+      "trace": "/Users/joaovicentedev/Projects/minicode/experiments/2026-11-22-planejamento-512/padrao/06_refactor/project/.minicode/runs/20261122T213121Z-f2985f58"
+    }
+  ]
+}

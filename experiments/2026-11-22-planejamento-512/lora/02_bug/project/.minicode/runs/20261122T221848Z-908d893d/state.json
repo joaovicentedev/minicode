@@ -1,0 +1,11 @@
+{
+  "task": "Corrija normalize_name em names.py: remova espaços nas pontas e compacte sequências de espaços internos para um único espaço, mantendo as letras.",
+  "status": "DONE",
+  "attempts": 2,
+  "llm_calls": 5,
+  "test_runs": 1,
+  "changed_files": [
+    "names.py"
+  ],
+  "result": ".                                                                        [100%]\n1 passed in 0.00s\n"
+}

@@ -1,0 +1,12 @@
+{
+  "task": "Preciso validar idades em validation.py com uma função valid_age(age). Ela deve aceitar números inteiros de 0 a 120, incluindo os limites. True e False não são idades válidas. Para qualquer valor inválido, lance ValueError.",
+  "status": "DONE",
+  "attempts": 1,
+  "llm_calls": 4,
+  "test_runs": 1,
+  "changed_files": [
+    "validation.py",
+    "tests/test_valid_age.py"
+  ],
+  "result": ".......                                                                  [100%]\n7 passed in 0.01s\n"
+}
